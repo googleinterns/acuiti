@@ -6,4 +6,4 @@ Shape Context descriptors were introduced in this 2001 research paper from UC Be
 
 Shape context implementation is available in OpenCV: https://docs.opencv.…stanceExtractor.html
 
-NOTE: This is not an officially supported Google product.
+**NOTE: This is not an officially supported Google product.**
