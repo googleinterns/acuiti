@@ -35,5 +35,5 @@ jobs:
         python -m pytest
     - name: Type analysis with pytype
       run: |
-        python -m pytype **/*.py
+        python -m pytype modules
     

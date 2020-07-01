@@ -87,6 +87,7 @@ class BenchmarkPipeline:
     benchmark.find_icons()
     benchmark.evaluate()
   """
+
   def __init__(self, tfrecord_path: str = DEFAULT_ARGS["tfrecord_path"]):
     parsed_image_dataset = _parse_image_dataset(tfrecord_path)
     self.bb_gold_list = _parse_bb_gold(parsed_image_dataset)
