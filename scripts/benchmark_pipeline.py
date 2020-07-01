@@ -1,6 +1,5 @@
 """BenchmarkPipeline class and tfRecord utility functions."""
 
-import time
 from bounding_box import BoundingBox
 from bounding_box_generator import BBGenerator
 import cv2
@@ -40,13 +39,14 @@ def _parse_bb_gold(parsed_image_dataset):
     bb_gold_list.append(bb_gold)
   return bb_gold_list
 
+
 def _parse_images(parsed_image_dataset):
-    image_list = []
-    for image_features in parsed_image_dataset:
-      image_raw = image_features["encoded_image_png"].numpy()
-      image_bgr = cv2.imdecode(np.frombuffer(image_raw, dtype=np.uint8), -1)
-      image_list.append(image_bgr)
-    return image_list
+  image_list = []
+  for image_features in parsed_image_dataset:
+    image_raw = image_features["encoded_image_png"].numpy()
+    image_bgr = cv2.imdecode(np.frombuffer(image_raw, dtype=np.uint8), -1)
+    image_list.append(image_bgr)
+  return image_list
 
 
 class BenchmarkPipeline:
@@ -113,6 +113,12 @@ class BenchmarkPipeline:
     return iou
 
   def find_icons(self, generator_option="random"):
+    """Runs an icon-finding algorithm under timed and memory-tracking conditions.
+
+    Keyword Arguments:
+        generator_option {str} -- Choice of icon-finding (bounding box finding)
+         algorithm. (default: {"random"})
+    """
     bb_generator = BBGenerator(self.image_list)
     timer = LatencyTimer()
     memtracker = MemoryTracker()
@@ -121,13 +127,18 @@ class BenchmarkPipeline:
       self.bb_list = bb_generator.generate_random()
     timer.stop()
     timer.print_info()
-    # memtracker.run_and_track_memory(())
+    memtracker.run_and_track_memory(bb_generator.generate_random)
+    memtracker.print_info()
 
-  def evaluate(self):
+  def evaluate(self, iou_threshold=0.6):
     """Integrated pipeline for testing calculated bounding boxes.
 
     Compares calculated bounding boxes to ground truth,
     via visualization and intersection over union.
+
+    Keyword Arguments:
+        iou_threshold {float} -- bounding boxes that yield an IOU over
+         this threshold will be considered "accurate" (default: {0.6})
     """
     self.visualize_bounding_boxes("images/gold/gold-visualized",
                                   self.bb_gold_list)
@@ -136,9 +147,9 @@ class BenchmarkPipeline:
     ious = []
     for (bb, bb_gold) in zip(self.bb_list, self.bb_gold_list):
       ious.append(self.calculate_iou(bb, bb_gold))
-    print("Average IOU: " + str(np.mean(ious)))
+    print("Accuracy: " + str(np.sum(np.array(ious) > iou_threshold)
+                             / len(ious)))
 
 benchmark = BenchmarkPipeline("acuiti/benchmark.tfrecord")
 benchmark.find_icons()
 benchmark.evaluate()
-

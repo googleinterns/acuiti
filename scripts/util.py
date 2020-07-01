@@ -3,12 +3,13 @@
 So far, we have classes that measure latency and
 memory usage.
 """
-import sys
-import cProfile
 import io
-import pstats
-from pstats import SortKey
+import sys
+
+import cProfile
 from memory_profiler import memory_usage
+import numpy as np
+import pstats
 
 
 class LatencyTimer:
@@ -32,7 +33,7 @@ class LatencyTimer:
          file object to print output to. (default: {sys.stdout})
     """
     s = io.StringIO()
-    ps = pstats.Stats(self.pr, stream=s).sort_stats(SortKey.CUMULATIVE)
+    ps = pstats.Stats(self.pr, stream=s).sort_stats(pstats.SortKey.CUMULATIVE)
     ps.print_stats()
     output_file.write(s.getvalue())
     output_file.flush()
@@ -61,5 +62,8 @@ class MemoryTracker:
         output_file {file object} --
          file object to print output to. (default: {sys.stdout})
     """
-    output_file.write(self.memory_info)
+    average_mb = self.memory_info
+    if len(self.memory_info) > 1:
+      average_mb = np.mean(self.memory_info)
+    output_file.write("Process took " + str(average_mb) + " megabytes \n")
     output_file.flush()
