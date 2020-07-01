@@ -6,8 +6,9 @@ from bounding_box import BoundingBox
 class BBGenerator:
   """This class has different methods to generate bounding boxes."""
 
-  def __init__(self, image_list):
+  def __init__(self, image_list, icon_list):
     self.image_dataset = image_list
+    self.icon_dataset = icon_list
 
   def generate_random(self):
     """Generates a list of random bounding boxes corresponding to the images in the dataset."""
