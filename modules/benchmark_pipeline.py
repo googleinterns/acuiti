@@ -13,7 +13,6 @@ from modules.util import MemoryTracker
 import numpy as np
 import tensorflow as tf
 
-
 image_feature_description = {
     "encoded_image_png": tf.io.FixedLenFeature([], tf.string),
     "encoded_icon_png": tf.io.FixedLenFeature([], tf.string),
@@ -88,12 +87,12 @@ class BenchmarkPipeline:
     benchmark.find_icons()
     benchmark.evaluate()
   """
-
   def __init__(self, tfrecord_path: str = DEFAULT_ARGS["tfrecord_path"]):
-    self.parsed_image_dataset = _parse_image_dataset(tfrecord_path)
-    self.bb_gold_list = _parse_bb_gold(self.parsed_image_dataset)
-    self.image_list, self.icon_list = _parse_images_and_icons(
-        self.parsed_image_dataset)
+    parsed_image_dataset = _parse_image_dataset(tfrecord_path)
+    self.bb_gold_list = _parse_bb_gold(parsed_image_dataset)
+    images, icons = _parse_images_and_icons(parsed_image_dataset)
+    self.image_list = images
+    self.icon_list = icons
     self.bb_list = []
 
   def visualize_bounding_boxes(self, output_name: str,
@@ -104,9 +103,7 @@ class BenchmarkPipeline:
         output_name: prefix of filename images should be saved as
         bb_list: list of BoundingBoxes
     """
-    for i, image_features in enumerate(self.parsed_image_dataset):
-      image_raw = image_features["encoded_image_png"].numpy()
-      image_bgr = cv2.imdecode(np.frombuffer(image_raw, dtype=np.uint8), -1)
+    for i, image_bgr in enumerate(self.image_list):
       bb = bb_list[i]
       # top left and bottom right corner of rectangle
       cv2.rectangle(image_bgr, (bb.min_x, bb.min_y), (bb.max_x, bb.max_y),
@@ -177,6 +174,7 @@ class BenchmarkPipeline:
 
   def evaluate(
       self,
+      visualize: bool = False,
       iou_threshold: float = DEFAULT_ARGS["iou_threshold"],
       output_path: str = DEFAULT_ARGS["output_path"],
       generator_option: str = DEFAULT_ARGS["generator_option"]) -> float:
@@ -187,6 +185,8 @@ class BenchmarkPipeline:
     to stdout, and also to a file via output_path.
 
     Args:
+        visualize: true or false for whether to visualize
+          (default: {False})
         iou_threshold: bounding boxes that yield an IOU over
          this threshold will be considered "accurate"
           (default: {DEFAULT_ARGS["iou_threshold"]})
@@ -198,11 +198,12 @@ class BenchmarkPipeline:
     Returns:
         float -- accuracy of the bounding box detection process.
     """
-    self.visualize_bounding_boxes("images/gold/gold-visualized",
-                                  self.bb_gold_list)
-    self.visualize_bounding_boxes(
-        "images/" + generator_option + "/" + generator_option + "-visualized",
-        self.bb_list)
+    if visualize:
+      self.visualize_bounding_boxes("images/gold/gold-visualized",
+                                    self.bb_gold_list)
+      self.visualize_bounding_boxes(
+          "images/" + generator_option + "/" + generator_option +
+          "-visualized", self.bb_list)
     ious = []
     for (bb, bb_gold) in zip(self.bb_list, self.bb_gold_list):
       ious.append(BenchmarkPipeline.calculate_iou(bb, bb_gold))
