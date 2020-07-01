@@ -1,12 +1,14 @@
 """BenchmarkPipeline class and tfRecord utility functions."""
 
 import time
-from bb import BoundingBox
-from bb_generator import BBGenerator
+from bounding_box import BoundingBox
+from bounding_box_generator import BBGenerator
 import cv2
 from matplotlib import pyplot
 import numpy as np
 import tensorflow as tf
+from util import LatencyTimer
+from util import MemoryTracker
 
 image_feature_description = {
     "encoded_image_png": tf.io.FixedLenFeature([], tf.string),
@@ -22,7 +24,7 @@ def _parse_image_function(example_proto):
   return tf.io.parse_single_example(example_proto, image_feature_description)
 
 
-def _parse_images(path):
+def _parse_image_dataset(path):
   raw_dataset = tf.data.TFRecordDataset(path)
   parsed_image_dataset = raw_dataset.map(_parse_image_function)
   return parsed_image_dataset
@@ -38,18 +40,29 @@ def _parse_bb_gold(parsed_image_dataset):
     bb_gold_list.append(bb_gold)
   return bb_gold_list
 
+def _parse_images(parsed_image_dataset):
+    image_list = []
+    for image_features in parsed_image_dataset:
+      image_raw = image_features["encoded_image_png"].numpy()
+      image_bgr = cv2.imdecode(np.frombuffer(image_raw, dtype=np.uint8), -1)
+      image_list.append(image_bgr)
+    return image_list
+
 
 class BenchmarkPipeline:
   """Represents a pipeline to test generated Bounding Boxes.
 
   Usage example:
-    pipeline = BenchmarkPipeline("acuiti/benchmark.tfrecord")
-    pipeline.integrated_pipeline()
+    benchmark = BenchmarkPipeline("acuiti/benchmark.tfrecord")
+    benchmark.find_icons()
+    benchmark.evaluate()
   """
 
   def __init__(self, tfrecord_path):
-    self.parsed_image_dataset = _parse_images(tfrecord_path)
+    self.parsed_image_dataset = _parse_image_dataset(tfrecord_path)
     self.bb_gold_list = _parse_bb_gold(self.parsed_image_dataset)
+    self.image_list = _parse_images(self.parsed_image_dataset)
+    self.bb_list = []
 
   def visualize_bounding_boxes(self, output_name, bb_list):
     """Visualizes bounding box of icon in its source image.
@@ -99,22 +112,33 @@ class BenchmarkPipeline:
     iou = intersection_area / float(bb_area + bb_gold_area - intersection_area)
     return iou
 
-  def integrated_pipeline(self):
+  def find_icons(self, generator_option="random"):
+    bb_generator = BBGenerator(self.image_list)
+    timer = LatencyTimer()
+    memtracker = MemoryTracker()
+    timer.start()
+    if generator_option is "random":
+      self.bb_list = bb_generator.generate_random()
+    timer.stop()
+    timer.print_info()
+    # memtracker.run_and_track_memory(())
+
+  def evaluate(self):
     """Integrated pipeline for testing calculated bounding boxes.
 
     Compares calculated bounding boxes to ground truth,
     via visualization and intersection over union.
     """
-
     self.visualize_bounding_boxes("images/gold/gold-visualized",
                                   self.bb_gold_list)
-    start = time.process_time()
-    bb_generator = BBGenerator(self.parsed_image_dataset)
-    bb_list = bb_generator.generate_random()
-    print("Time taken to generate bounding boxes: " +
-          str(time.process_time() - start) + " seconds")
-    self.visualize_bounding_boxes("images/random/random-visualized", bb_list)
+    self.visualize_bounding_boxes("images/random/random-visualized",
+                                  self.bb_list)
     ious = []
-    for (bb, bb_gold) in zip(bb_list, self.bb_gold_list):
+    for (bb, bb_gold) in zip(self.bb_list, self.bb_gold_list):
       ious.append(self.calculate_iou(bb, bb_gold))
     print("Average IOU: " + str(np.mean(ious)))
+
+benchmark = BenchmarkPipeline("acuiti/benchmark.tfrecord")
+benchmark.find_icons()
+benchmark.evaluate()
+
