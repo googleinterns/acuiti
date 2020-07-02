@@ -117,8 +117,8 @@ class BenchmarkPipeline:
       pyplot.imsave(output_name + str(i) + ".jpg", image_rgb)
 
   @staticmethod
-  def calculate_iou(bb: List[BoundingBox],
-                    bb_gold: List[BoundingBox]) -> float:
+  def calculate_iou(bb: BoundingBox,
+                    bb_gold: BoundingBox) -> float:
     """Calculate the intersection over union of two bounding boxes.
 
     The intersection is the overlap of two bounding boxes,

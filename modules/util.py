@@ -37,7 +37,7 @@ class LatencyTimer:
         float -- the total time taken between calls to start and stop
     """
     s = io.StringIO()
-    sort_by = pstats.SortKey.CUMULATIVE  # pytype: disable=attribute-error
+    sort_by = pstats.SortKey.CUMULATIVE  # pytype: disable=module-attr
     ps = pstats.Stats(self.pr, stream=s).sort_stats(sort_by)
     ps.print_stats()
     info = s.getvalue()
