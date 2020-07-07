@@ -1,22 +1,16 @@
-"""This module has a BBGenerator class for generating bounding boxes.
-
- This is where ShapeContextDescriptor algorithm would go after implemented.
+"""This module has an IconFinderRandom class for randomly finding bounding boxes.
 """
 import random
 from typing import List
 
 from modules.bounding_box import BoundingBox
+import modules.icon_finder
 
 
-class BBGenerator:
-  """This class has different methods to generate bounding boxes."""
+class IconFinderRandom(modules.icon_finder.IconFinder):  # pytype: disable=module-attr
+  """This class generates bounding boxes randomly."""
 
-  def __init__(self, image_list: List[BoundingBox],
-               icon_list: List[BoundingBox]):
-    self.image_dataset = image_list
-    self.icon_dataset = icon_list
-
-  def generate_random(self) -> List[BoundingBox]:
+  def find_icons(self) -> List[BoundingBox]:
     """Generates a list of random bounding boxes corresponding to the images in the dataset."""
     bb_list = []
     for image_bgr in self.image_dataset:

@@ -1,8 +1,8 @@
 """This module contains a BoundingBox class."""
-from dataclasses import dataclass
+import dataclasses
 
 
-@dataclass
+@dataclasses.dataclass
 class BoundingBox:
   """Class for keeping track of a bounding box's coordinates.
 

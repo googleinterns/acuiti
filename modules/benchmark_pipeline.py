@@ -4,16 +4,15 @@ import argparse
 from typing import Any, List, Tuple
 
 import cv2
-from matplotlib import pyplot
+import matplotlib
 from modules.bounding_box import BoundingBox
-from modules.bounding_box_generator import BBGenerator
-from modules.defaults import DEFAULT_ARGS
-from modules.util import LatencyTimer
-from modules.util import MemoryTracker
+import modules.defaults as defaults
+from modules.icon_finder_random import IconFinderRandom
+import modules.util
 import numpy as np
 import tensorflow as tf
 
-image_feature_description = {
+_IMAGE_FEATURE_DESCRIPTION = {
     "encoded_image_png": tf.io.FixedLenFeature([], tf.string),
     "encoded_icon_png": tf.io.FixedLenFeature([], tf.string),
     "box_ymin": tf.io.FixedLenFeature([], tf.float32),
@@ -25,7 +24,7 @@ image_feature_description = {
 
 def _parse_image_function(
     example_proto: tf.python.framework.ops.Tensor) -> Any:
-  return tf.io.parse_single_example(example_proto, image_feature_description)
+  return tf.io.parse_single_example(example_proto, _IMAGE_FEATURE_DESCRIPTION)
 
 
 def _parse_image_dataset(
@@ -35,7 +34,7 @@ def _parse_image_dataset(
   return parsed_image_dataset
 
 
-def _parse_bb_gold(
+def _parse_gold_boxes(
     parsed_image_dataset: tf.python.data.ops.dataset_ops.MapDataset
 ) -> List[BoundingBox]:
   """Retrieve a list of bounding boxes from dataset.
@@ -44,16 +43,16 @@ def _parse_bb_gold(
       parsed_image_dataset: Original dataset read from TFRecord
 
   Returns:
-      List[BoundingBox] -- List of ground truth bounding boxes.
+      List of ground truth BoundingBoxes.
   """
-  bb_gold_list = []
+  gold_boxes = []
   for image_features in parsed_image_dataset:
-    bb_gold = BoundingBox(image_features["box_xmin"],
-                          image_features["box_ymin"],
-                          image_features["box_xmax"],
-                          image_features["box_ymax"])
-    bb_gold_list.append(bb_gold)
-  return bb_gold_list
+    gold_box = BoundingBox(image_features["box_xmin"],
+                           image_features["box_ymin"],
+                           image_features["box_xmax"],
+                           image_features["box_ymax"])
+    gold_boxes.append(gold_box)
+  return gold_boxes
 
 
 def _parse_images_and_icons(
@@ -65,7 +64,7 @@ def _parse_images_and_icons(
       parsed_image_dataset: image dataset read from TFRecord
 
   Returns:
-      Tuple[List[np.ndarray], List[np.ndarray]] -- List of images and icons.
+      (List of images, List of icons)
   """
   image_list = []
   icon_list = []
@@ -88,130 +87,137 @@ class BenchmarkPipeline:
     benchmark.evaluate()
   """
 
-  def __init__(self, tfrecord_path: str = DEFAULT_ARGS["tfrecord_path"]):
+  def __init__(self, tfrecord_path: str = defaults.TFRECORD_PATH):
     parsed_image_dataset = _parse_image_dataset(tfrecord_path)
-    self.bb_gold_list = _parse_bb_gold(parsed_image_dataset)
+    self.gold_boxes = _parse_gold_boxes(parsed_image_dataset)
     images, icons = _parse_images_and_icons(parsed_image_dataset)
     self.image_list = images
     self.icon_list = icons
-    self.bb_list = []
+    self.proposed_boxes = []
 
   def visualize_bounding_boxes(self, output_name: str,
-                               bb_list: List[BoundingBox]):
+                               boxes: List[BoundingBox]):
     """Visualizes bounding box of icon in its source image.
 
     Arguments:
         output_name: prefix of filename images should be saved as
-        bb_list: list of BoundingBoxes
+        boxes: list of BoundingBoxes
     """
     for i, image_bgr in enumerate(self.image_list):
-      bb = bb_list[i]
+      box = boxes[i]
       # top left and bottom right corner of rectangle
-      cv2.rectangle(image_bgr, (bb.min_x, bb.min_y), (bb.max_x, bb.max_y),
+      cv2.rectangle(image_bgr, (box.min_x, box.min_y), (box.max_x, box.max_y),
                     (0, 255, 0), 3)
       image_rgb = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
 
       if image_rgb is None:
         print("Could not read the image.")
-      pyplot.imshow(image_rgb)
-      pyplot.imsave(output_name + str(i) + ".jpg", image_rgb)
+      matplotlib.pyplot.imshow(image_rgb)
+      matplotlib.pyplot.imsave(output_name + str(i) + ".jpg", image_rgb)
 
   @staticmethod
-  def calculate_iou(bb: BoundingBox,
-                    bb_gold: BoundingBox) -> float:
+  def calculate_iou(proposed_box: BoundingBox, gold_box: BoundingBox) -> float:
     """Calculate the intersection over union of two bounding boxes.
 
     The intersection is the overlap of two bounding boxes,
     and the union is the total area of two bounding boxes.
 
     Arguments:
-      bb: calculated BoundingBox.
-      bb_gold: ground truth BoundingBox.
+      proposed_box: calculated BoundingBox.
+      gold_box: ground truth BoundingBox.
 
     Returns:
       float -- intersection over union of the two bounding boxes.
     """
-    overlap_box = BoundingBox(max(bb.min_x, bb_gold.min_x),
-                              max(bb.min_y, bb_gold.min_y),
-                              min(bb.max_x, bb_gold.max_x),
-                              min(bb.max_y, bb_gold.max_y))
+    overlap_box = BoundingBox(max(proposed_box.min_x, gold_box.min_x),
+                              max(proposed_box.min_y, gold_box.min_y),
+                              min(proposed_box.max_x, gold_box.max_x),
+                              min(proposed_box.max_y, gold_box.max_y))
 
     if overlap_box.max_x < overlap_box.min_x or overlap_box.max_y < overlap_box.min_y:
       return 0.0
 
     intersection_area = overlap_box.calculate_area()
-    bb_area = bb.calculate_area()
-    bb_gold_area = bb_gold.calculate_area()
-    iou = intersection_area / float(bb_area + bb_gold_area - intersection_area)
+    proposed_box_area = proposed_box.calculate_area()
+    gold_box_area = gold_box.calculate_area()
+    iou = intersection_area / float(proposed_box_area + gold_box_area -
+                                    intersection_area)
     return iou
 
   def find_icons(
       self,
-      generator_option: str = DEFAULT_ARGS["generator_option"],
-      output_path: str = DEFAULT_ARGS["output_path"]) -> Tuple[float, float]:
+      find_icon_option: str = defaults.FIND_ICON_OPTION,
+      output_path: str = defaults.OUTPUT_PATH) -> Tuple[float, float]:
     """Runs an icon-finding algorithm under timed and memory-tracking conditions.
 
-    Args:
-        generator_option: Choice of icon-finding (bounding box finding)
-         algorithm. (default: {DEFAULT_ARGS["generator_option"]})
+    Arguments:
+        find_icon_option: Choice of icon-finding (bounding box finding)
+         algorithm. (default: {defaults.FIND_ICON_OPTION})
         output_path: Filename for writing time and memory info to
-         (default: {DEFAULT_ARGS["output_path"]})
+         (default: {defaults.OUTPUT_PATH})
 
     Returns:
-        Tuple[float, float] -- total time and total memory
-         used for find icon process
+        (total time, total memory) used for find icon process
     """
-    bb_generator = BBGenerator(self.image_list, self.icon_list)
-    timer = LatencyTimer()
-    memtracker = MemoryTracker()
+    if not find_icon_option.startswith(
+        "IconFinder") or find_icon_option not in globals():
+      print(
+          "Could not find the find icon class you inputted. Using default %s instead"
+          % defaults.FIND_ICON_OPTION)
+      find_icon_option = defaults.FIND_ICON_OPTION
+    try:
+      icon_finder = globals()[find_icon_option](self.image_list,
+                                                self.icon_list)
+    except KeyError:
+      print("IconFinder class %s could not be resolved in global store." %
+            find_icon_option)
+    timer = modules.util.LatencyTimer()  # pytype: disable=module-attr
+    memtracker = modules.util.MemoryTracker()  # pytype: disable=module-attr
     timer.start()
-    if generator_option == "random":
-      self.bb_list = bb_generator.generate_random()
+    self.proposed_boxes = icon_finder.find_icons()
     timer.stop()
     timer_info = timer.print_info(output_path)
-    memtracker.run_and_track_memory(bb_generator.generate_random)
+    memtracker.run_and_track_memory(icon_finder.find_icons)
     mem_info = memtracker.print_info(output_path)
     return timer_info, mem_info
 
-  def evaluate(
-      self,
-      visualize: bool = False,
-      iou_threshold: float = DEFAULT_ARGS["iou_threshold"],
-      output_path: str = DEFAULT_ARGS["output_path"],
-      generator_option: str = DEFAULT_ARGS["generator_option"]) -> float:
+  def evaluate(self,
+               visualize: bool = False,
+               iou_threshold: float = defaults.IOU_THRESHOLD,
+               output_path: str = defaults.OUTPUT_PATH,
+               find_icon_option: str = defaults.FIND_ICON_OPTION) -> float:
     """Integrated pipeline for testing calculated bounding boxes.
 
     Compares calculated bounding boxes to ground truth,
     via visualization and intersection over union. Prints out accuracy
     to stdout, and also to a file via output_path.
 
-    Args:
+    Arguments:
         visualize: true or false for whether to visualize
           (default: {False})
         iou_threshold: bounding boxes that yield an IOU over
          this threshold will be considered "accurate"
-          (default: {DEFAULT_ARGS["iou_threshold"]})
+          (default: {defaults.IOU_THRESHOLD})
         output_path: path for where accuracy should be printed to.
-        (default: {DEFAULT_ARGS["output_path"]})
-        generator_option: option for find_icon algorithm.
-         (default: {DEFAULT_ARGS["generator_option"]})
+        (default: {defaults.OUTPUT_PATH})
+        find_icon_option: option for find_icon algorithm.
+         (default: {defaults.FIND_ICON_OPTION})
 
     Returns:
         float -- accuracy of the bounding box detection process.
     """
     if visualize:
       self.visualize_bounding_boxes("images/gold/gold-visualized",
-                                    self.bb_gold_list)
+                                    self.gold_boxes)
       self.visualize_bounding_boxes(
-          "images/" + generator_option + "/" + generator_option +
-          "-visualized", self.bb_list)
+          "images/" + find_icon_option + "/" + find_icon_option +
+          "-visualized", self.proposed_boxes)
     ious = []
-    for (bb, bb_gold) in zip(self.bb_list, self.bb_gold_list):
-      ious.append(BenchmarkPipeline.calculate_iou(bb, bb_gold))
+    for (proposed_box, gold_box) in zip(self.proposed_boxes, self.gold_boxes):
+      ious.append(BenchmarkPipeline.calculate_iou(proposed_box, gold_box))
     accuracy = np.sum(np.array(ious) > iou_threshold) / len(ious)
-    output_file = open(output_path, "a")
-    output_file.write("Accuracy: %f\n" % accuracy)
-    output_file.close()
+    with open(output_path, "a") as output_file:
+      output_file.write("Accuracy: %f\n" % accuracy)
     print("Accuracy: %f\n" % accuracy)
     return accuracy
 
@@ -220,34 +226,41 @@ if __name__ == "__main__":
   parser = argparse.ArgumentParser(
       description="Run a benchmark test on find_icon algorithm.")
   parser.add_argument("--algorithm",
-                      dest="generator_option",
+                      dest="find_icon_option",
                       type=str,
-                      default=DEFAULT_ARGS["generator_option"],
+                      default=defaults.FIND_ICON_OPTION,
                       help="find icon algorithm option (default: %s)" %
-                      DEFAULT_ARGS["generator_option"])
+                      defaults.FIND_ICON_OPTION)
   parser.add_argument("--tfrecord_path",
                       dest="tfrecord_path",
                       type=str,
-                      default=DEFAULT_ARGS["tfrecord_path"],
+                      default=defaults.TFRECORD_PATH,
                       help="path to tfrecord (default: %s)" %
-                      DEFAULT_ARGS["tfrecord_path"])
+                      defaults.TFRECORD_PATH)
   parser.add_argument(
       "--iou_threshold",
       dest="threshold",
       type=float,
-      default=DEFAULT_ARGS["iou_threshold"],
+      default=defaults.IOU_THRESHOLD,
       help="iou above this threshold is considered accurate (default: %f)" %
-      DEFAULT_ARGS["iou_threshold"])
+      defaults.IOU_THRESHOLD)
   parser.add_argument("--output_path",
                       dest="output_path",
                       type=str,
-                      default=DEFAULT_ARGS["output_path"],
+                      default=defaults.OUTPUT_PATH,
                       help="path to where output is written (default: %s)" %
-                      DEFAULT_ARGS["output_path"])
+                      defaults.OUTPUT_PATH)
   args = parser.parse_args()
+  _find_icon_option = args.find_icon_option
+  if _find_icon_option and (not _find_icon_option.startswith("IconFinder")
+                            or _find_icon_option not in globals()):
+    print(
+        "Could not find the find icon class you inputted. Using default %s instead"
+        % defaults.FIND_ICON_OPTION)
+    _find_icon_option = defaults.FIND_ICON_OPTION
   benchmark = BenchmarkPipeline(tfrecord_path=args.tfrecord_path)
-  benchmark.find_icons(generator_option=args.generator_option,
+  benchmark.find_icons(find_icon_option=_find_icon_option,
                        output_path=args.output_path)
   benchmark.evaluate(iou_threshold=args.threshold,
                      output_path=args.output_path,
-                     generator_option=args.generator_option)
+                     find_icon_option=_find_icon_option)

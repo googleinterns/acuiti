@@ -7,9 +7,9 @@ import cProfile
 import io
 import pstats
 
-from memory_profiler import memory_usage
+import memory_profiler
 
-from modules.defaults import DEFAULT_ARGS
+import modules.defaults as defaults
 import numpy as np
 
 
@@ -26,7 +26,7 @@ class LatencyTimer:
   def stop(self):
     self.pr.disable()
 
-  def print_info(self, output_path=DEFAULT_ARGS["output_path"]):
+  def print_info(self, output_path=defaults.OUTPUT_PATH):
     """Prints memory usage information.
 
     Args:
@@ -41,9 +41,8 @@ class LatencyTimer:
     ps = pstats.Stats(self.pr, stream=s).sort_stats(sort_by)
     ps.print_stats()
     info = s.getvalue()
-    output_file = open(output_path, "a")
-    output_file.write(info)
-    output_file.close()
+    with open(output_path, "a") as output_file:
+      output_file.write(info)
     print(info)
     # parse cProfiler's output to get the total time as a float
     first_line = info.partition("\n")[0]
@@ -65,9 +64,9 @@ class MemoryTracker:
         func_args_tuple: tuple of function and
          variable number of arguments to the function
     """
-    self.memory_info = memory_usage(func_args_tuple)
+    self.memory_info = memory_profiler.memory_usage(func_args_tuple)
 
-  def print_info(self, output_path=DEFAULT_ARGS["output_path"]):
+  def print_info(self, output_path=defaults.OUTPUT_PATH):
     """Prints memory usage information.
 
     Args:
@@ -80,9 +79,8 @@ class MemoryTracker:
     average_mb = self.memory_info
     if len(self.memory_info) > 1:
       average_mb = np.mean(self.memory_info)
-    output_file = open(output_path, "a")
     output_msg = "Process took %f megabytes \n" % average_mb
-    output_file.write(output_msg)
-    output_file.close()
+    with open(output_path, "a") as output_file:
+      output_file.write(output_msg)
     print(output_msg)
     return average_mb

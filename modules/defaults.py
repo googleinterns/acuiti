@@ -3,9 +3,8 @@
 This is where default configurations should be set
 and updated.
 """
-DEFAULT_ARGS = {
-    "iou_threshold": 0.6,
-    "tfrecord_path": "benchmark.tfrecord",
-    "generator_option": "random",
-    "output_path": "out.txt",
-}
+IOU_THRESHOLD = 0.6
+TFRECORD_PATH = "benchmark.tfrecord"
+FIND_ICON_OPTION = "IconFinderRandom"
+OUTPUT_PATH = "out.txt"
+
