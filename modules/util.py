@@ -26,12 +26,12 @@ class LatencyTimer:
   def stop(self):
     self.pr.disable()
 
-  def print_info(self, output_path=defaults.OUTPUT_PATH):
-    """Prints memory usage information.
+  def calculate_info(self, output_path=defaults.OUTPUT_PATH):
+    """Prints latency information.
 
     Args:
         output_path: file path to print output to.
-         (default: {out.txt})
+         (default: None)
 
     Returns:
         float -- the total time taken between calls to start and stop
@@ -41,8 +41,9 @@ class LatencyTimer:
     ps = pstats.Stats(self.pr, stream=s).sort_stats(sort_by)
     ps.print_stats()
     info = s.getvalue()
-    with open(output_path, "a") as output_file:
-      output_file.write(info)
+    if output_path:
+      with open(output_path, "a") as output_file:
+        output_file.write(info)
     print(info)
     # parse cProfiler's output to get the total time as a float
     first_line = info.partition("\n")[0]
@@ -63,15 +64,17 @@ class MemoryTracker:
     Args:
         func_args_tuple: tuple of function and
          variable number of arguments to the function
+          in the form of (f, args, kw)
+          Example argument: (f, (1,), {'n': int(1e6)})
     """
     self.memory_info = memory_profiler.memory_usage(func_args_tuple)
 
-  def print_info(self, output_path=defaults.OUTPUT_PATH):
+  def calculate_info(self, output_path=defaults.OUTPUT_PATH):
     """Prints memory usage information.
 
     Args:
         output_path: file path to print output to.
-         (default: {out.txt})
+         (default: None)
 
     Returns:
         float -- the megabytes used by the function call
@@ -80,7 +83,8 @@ class MemoryTracker:
     if len(self.memory_info) > 1:
       average_mb = np.mean(self.memory_info)
     output_msg = "Process took %f megabytes \n" % average_mb
-    with open(output_path, "a") as output_file:
-      output_file.write(output_msg)
+    if output_path:
+      with open(output_path, "a") as output_file:
+        output_file.write(output_msg)
     print(output_msg)
     return average_mb

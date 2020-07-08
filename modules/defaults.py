@@ -5,6 +5,5 @@ and updated.
 """
 IOU_THRESHOLD = 0.6
 TFRECORD_PATH = "benchmark.tfrecord"
-FIND_ICON_OPTION = "IconFinderRandom"
-OUTPUT_PATH = "out.txt"
-
+FIND_ICON_OPTION = "random"
+OUTPUT_PATH = ""

@@ -18,14 +18,12 @@ bounding_box_tests = [(box_a, box_b, 25 / 700), (box_a, box_c, 0),
 
 @pytest.mark.parametrize("box_1,box_2,expected", bounding_box_tests)
 def test_iou(box_1, box_2, expected):
-  assert modules.benchmark_pipeline.BenchmarkPipeline.calculate_iou(
-      box_1, box_2) == expected
+  assert box_1.calculate_iou(box_2) == expected
 
 
 def test_benchmark():
   benchmark = modules.benchmark_pipeline.BenchmarkPipeline()
-  find_icon_time, find_icon_memory = benchmark.find_icons()
-  accuracy = benchmark.evaluate()
-  assert find_icon_memory <= 1000
-  assert find_icon_time <= 120
+  accuracy, find_icon_time_secs, find_icon_memory_mbs = benchmark.evaluate()
+  assert find_icon_memory_mbs <= 1000
+  assert find_icon_time_secs <= 120
   assert accuracy >= 0

@@ -4,11 +4,11 @@ import argparse
 from typing import Any, List, Tuple
 
 import cv2
-import matplotlib
+import matplotlib.pyplot
+from modules import defaults
+from modules import util
 from modules.bounding_box import BoundingBox
-import modules.defaults as defaults
-from modules.icon_finder_random import IconFinderRandom
-import modules.util
+import modules.icon_finder_random
 import numpy as np
 import tensorflow as tf
 
@@ -20,6 +20,8 @@ _IMAGE_FEATURE_DESCRIPTION = {
     "box_ymax": tf.io.FixedLenFeature([], tf.float32),
     "box_xmax": tf.io.FixedLenFeature([], tf.float32),
 }
+
+_ICON_FINDERS = {"random": modules.icon_finder_random.IconFinderRandom}  # pytype: disable=module-attr
 
 
 def _parse_image_function(
@@ -47,11 +49,13 @@ def _parse_gold_boxes(
   """
   gold_boxes = []
   for image_features in parsed_image_dataset:
+    # this will need to be updated once the new TFRecord format
+    # supports multiple BBoxes
     gold_box = BoundingBox(image_features["box_xmin"],
                            image_features["box_ymin"],
                            image_features["box_xmax"],
                            image_features["box_ymax"])
-    gold_boxes.append(gold_box)
+    gold_boxes.append([gold_box])
   return gold_boxes
 
 
@@ -83,16 +87,14 @@ class BenchmarkPipeline:
 
   Usage example:
     benchmark = BenchmarkPipeline("benchmark.tfrecord")
-    benchmark.find_icons()
     benchmark.evaluate()
   """
 
   def __init__(self, tfrecord_path: str = defaults.TFRECORD_PATH):
     parsed_image_dataset = _parse_image_dataset(tfrecord_path)
     self.gold_boxes = _parse_gold_boxes(parsed_image_dataset)
-    images, icons = _parse_images_and_icons(parsed_image_dataset)
-    self.image_list = images
-    self.icon_list = icons
+    self.image_list, self.icon_list = _parse_images_and_icons(
+        parsed_image_dataset)
     self.proposed_boxes = []
 
   def visualize_bounding_boxes(self, output_name: str,
@@ -104,45 +106,31 @@ class BenchmarkPipeline:
         boxes: list of BoundingBoxes
     """
     for i, image_bgr in enumerate(self.image_list):
-      box = boxes[i]
-      # top left and bottom right corner of rectangle
-      cv2.rectangle(image_bgr, (box.min_x, box.min_y), (box.max_x, box.max_y),
-                    (0, 255, 0), 3)
+      box_list = boxes[i]
+      for box in box_list:
+        # top left and bottom right corner of rectangle
+        cv2.rectangle(image_bgr, (box.min_x, box.min_y),
+                      (box.max_x, box.max_y), (0, 255, 0), 3)
       image_rgb = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
 
       if image_rgb is None:
         print("Could not read the image.")
       matplotlib.pyplot.imshow(image_rgb)
-      matplotlib.pyplot.imsave(output_name + str(i) + ".jpg", image_rgb)
+      matplotlib.pyplot.imsave(output_name + str(i) + ".png", image_rgb)
 
-  @staticmethod
-  def calculate_iou(proposed_box: BoundingBox, gold_box: BoundingBox) -> float:
-    """Calculate the intersection over union of two bounding boxes.
+  def calculate_latency(self, icon_finder, output_path: str):
+    timer = util.LatencyTimer()  # pytype: disable=module-attr
+    timer.start()
+    for image, icon in zip(self.image_list, self.icon_list):
+      self.proposed_boxes.append(icon_finder.find_icons(image, icon))
+    timer.stop()
+    return timer.calculate_info(output_path)
 
-    The intersection is the overlap of two bounding boxes,
-    and the union is the total area of two bounding boxes.
-
-    Arguments:
-      proposed_box: calculated BoundingBox.
-      gold_box: ground truth BoundingBox.
-
-    Returns:
-      float -- intersection over union of the two bounding boxes.
-    """
-    overlap_box = BoundingBox(max(proposed_box.min_x, gold_box.min_x),
-                              max(proposed_box.min_y, gold_box.min_y),
-                              min(proposed_box.max_x, gold_box.max_x),
-                              min(proposed_box.max_y, gold_box.max_y))
-
-    if overlap_box.max_x < overlap_box.min_x or overlap_box.max_y < overlap_box.min_y:
-      return 0.0
-
-    intersection_area = overlap_box.calculate_area()
-    proposed_box_area = proposed_box.calculate_area()
-    gold_box_area = gold_box.calculate_area()
-    iou = intersection_area / float(proposed_box_area + gold_box_area -
-                                    intersection_area)
-    return iou
+  def calculate_memory(self, icon_finder, output_path: str):
+    memtracker = util.MemoryTracker()  # pytype: disable=module-attr
+    for image, icon in zip(self.image_list, self.icon_list):
+      memtracker.run_and_track_memory((icon_finder.find_icons, (image, icon)))
+    return memtracker.calculate_info(output_path)
 
   def find_icons(
       self,
@@ -159,33 +147,52 @@ class BenchmarkPipeline:
     Returns:
         (total time, total memory) used for find icon process
     """
-    if not find_icon_option.startswith(
-        "IconFinder") or find_icon_option not in globals():
+    if find_icon_option not in _ICON_FINDERS:
       print(
           "Could not find the find icon class you inputted. Using default %s instead"
           % defaults.FIND_ICON_OPTION)
       find_icon_option = defaults.FIND_ICON_OPTION
     try:
-      icon_finder = globals()[find_icon_option](self.image_list,
-                                                self.icon_list)
+      icon_finder = _ICON_FINDERS[find_icon_option]()
     except KeyError:
-      print("IconFinder class %s could not be resolved in global store." %
-            find_icon_option)
-    timer = modules.util.LatencyTimer()  # pytype: disable=module-attr
-    memtracker = modules.util.MemoryTracker()  # pytype: disable=module-attr
-    timer.start()
-    self.proposed_boxes = icon_finder.find_icons()
-    timer.stop()
-    timer_info = timer.print_info(output_path)
-    memtracker.run_and_track_memory(icon_finder.find_icons)
-    mem_info = memtracker.print_info(output_path)
-    return timer_info, mem_info
+      print("Error resolving %s" % _ICON_FINDERS[find_icon_option])
+
+    return self.calculate_latency(icon_finder,
+                                  output_path), self.calculate_memory(
+                                      icon_finder, output_path)
+
+  def single_instance_eval(self, iou_threshold: float,
+                           output_path: str) -> float:
+    """Evaluates proposed bounding boxes with one instance of icon in image.
+
+    Arguments:
+        iou_threshold: Threshold above which a bbox is accurate
+        output_path: Output path of writing accuracy info
+
+    Returns:
+        float -- accuracy calculated
+    """
+    ious = []
+    for (proposed_box_list, gold_box_list) in zip(self.proposed_boxes,
+                                                  self.gold_boxes):
+      ious.append(proposed_box_list[0].calculate_iou(gold_box_list[0]))
+    accuracy = np.sum(np.array(ious) > iou_threshold) / len(ious)
+    if output_path:
+      with open(output_path, "a") as output_file:
+        output_file.write("Accuracy: %f\n" % accuracy)
+    print("Accuracy: %f\n" % accuracy)
+    return accuracy
+
+  def multi_instance_eval(self):
+    # Not implemented yet.
+    return -1
 
   def evaluate(self,
                visualize: bool = False,
                iou_threshold: float = defaults.IOU_THRESHOLD,
                output_path: str = defaults.OUTPUT_PATH,
-               find_icon_option: str = defaults.FIND_ICON_OPTION) -> float:
+               find_icon_option: str = defaults.FIND_ICON_OPTION,
+               multi_instance_icon: bool = False) -> Tuple[float, float, float]:
     """Integrated pipeline for testing calculated bounding boxes.
 
     Compares calculated bounding boxes to ground truth,
@@ -202,24 +209,26 @@ class BenchmarkPipeline:
         (default: {defaults.OUTPUT_PATH})
         find_icon_option: option for find_icon algorithm.
          (default: {defaults.FIND_ICON_OPTION})
+        multi_instance_icon: flag for whether we're evaluating with
+         multiple instances of an icon in an image
+          (default: {False})
 
     Returns:
-        float -- accuracy of the bounding box detection process.
+        float, float, float -- accuracy, runtime, memory of the bounding
+         box detection process.
     """
+    runtime_secs, memory_mbs = self.find_icons(find_icon_option, output_path)
     if visualize:
       self.visualize_bounding_boxes("images/gold/gold-visualized",
                                     self.gold_boxes)
       self.visualize_bounding_boxes(
           "images/" + find_icon_option + "/" + find_icon_option +
           "-visualized", self.proposed_boxes)
-    ious = []
-    for (proposed_box, gold_box) in zip(self.proposed_boxes, self.gold_boxes):
-      ious.append(BenchmarkPipeline.calculate_iou(proposed_box, gold_box))
-    accuracy = np.sum(np.array(ious) > iou_threshold) / len(ious)
-    with open(output_path, "a") as output_file:
-      output_file.write("Accuracy: %f\n" % accuracy)
-    print("Accuracy: %f\n" % accuracy)
-    return accuracy
+    if multi_instance_icon:
+      accuracy = self.multi_instance_eval()
+    else:
+      accuracy = self.single_instance_eval(iou_threshold, output_path)
+    return accuracy, runtime_secs, memory_mbs
 
 
 if __name__ == "__main__":
@@ -250,17 +259,31 @@ if __name__ == "__main__":
                       default=defaults.OUTPUT_PATH,
                       help="path to where output is written (default: %s)" %
                       defaults.OUTPUT_PATH)
+  parser.add_argument(
+      "--multi_instance_icon",
+      dest="multi_instance_icon",
+      type=bool,
+      default=False,
+      help=
+      "whether to evaluate with multiple instances of an icon in an image (default: %s)"
+      % False)
+  parser.add_argument(
+      "--visualize",
+      dest="visualize",
+      type=bool,
+      default=False,
+      help="whether to visualize bounding boxes on image (default: %s)" %
+      False)
   args = parser.parse_args()
   _find_icon_option = args.find_icon_option
-  if _find_icon_option and (not _find_icon_option.startswith("IconFinder")
-                            or _find_icon_option not in globals()):
+  if _find_icon_option not in _ICON_FINDERS:
     print(
         "Could not find the find icon class you inputted. Using default %s instead"
         % defaults.FIND_ICON_OPTION)
     _find_icon_option = defaults.FIND_ICON_OPTION
   benchmark = BenchmarkPipeline(tfrecord_path=args.tfrecord_path)
-  benchmark.find_icons(find_icon_option=_find_icon_option,
-                       output_path=args.output_path)
-  benchmark.evaluate(iou_threshold=args.threshold,
+  benchmark.evaluate(visualize=args.visualize,
+                     iou_threshold=args.threshold,
                      output_path=args.output_path,
-                     find_icon_option=_find_icon_option)
+                     find_icon_option=_find_icon_option,
+                     multi_instance_icon=args.multi_instance_icon)
