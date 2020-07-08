@@ -6,9 +6,9 @@ from typing import Any, List, Tuple
 import cv2
 import matplotlib.pyplot
 from modules import defaults
+from modules import icon_finder_random
 from modules import util
 from modules.bounding_box import BoundingBox
-import modules.icon_finder_random
 import numpy as np
 import tensorflow as tf
 
@@ -21,7 +21,7 @@ _IMAGE_FEATURE_DESCRIPTION = {
     "box_xmax": tf.io.FixedLenFeature([], tf.float32),
 }
 
-_ICON_FINDERS = {"random": modules.icon_finder_random.IconFinderRandom}  # pytype: disable=module-attr
+_ICON_FINDERS = {"random": icon_finder_random.IconFinderRandom}  # pytype: disable=module-attr
 
 
 def _parse_image_function(
@@ -49,7 +49,7 @@ def _parse_gold_boxes(
   """
   gold_boxes = []
   for image_features in parsed_image_dataset:
-    # this will need to be updated once the new TFRecord format
+    # This will need to be updated once the new TFRecord format
     # supports multiple BBoxes
     gold_box = BoundingBox(image_features["box_xmin"],
                            image_features["box_ymin"],
@@ -118,19 +118,53 @@ class BenchmarkPipeline:
       matplotlib.pyplot.imshow(image_rgb)
       matplotlib.pyplot.imsave(output_name + str(i) + ".png", image_rgb)
 
-  def calculate_latency(self, icon_finder, output_path: str):
-    timer = util.LatencyTimer()  # pytype: disable=module-attr
-    timer.start()
-    for image, icon in zip(self.image_list, self.icon_list):
-      self.proposed_boxes.append(icon_finder.find_icons(image, icon))
-    timer.stop()
-    return timer.calculate_info(output_path)
+  def calculate_latency(self, icon_finder, output_path: str) -> float:
+    """Uses LatencyTimer to calculate average time taken by icon_finder.
 
-  def calculate_memory(self, icon_finder, output_path: str):
-    memtracker = util.MemoryTracker()  # pytype: disable=module-attr
+    The average time per image is via processing all the images and icons in
+    the dataset. It optionally also prints this information to a file
+    given by output_path.
+
+    Arguments:
+        icon_finder: IconFinder object that implements an
+        icon-finding algorithm.
+        output_path: If not empty, output will also be written
+        to this path.
+
+    Returns:
+        float -- Average time in seconds that icon_finder took per image.
+    """
+    times = []
     for image, icon in zip(self.image_list, self.icon_list):
+      timer = util.LatencyTimer()  # pytype: disable=module-attr
+      timer.start()
+      self.proposed_boxes.append(icon_finder.find_icons(image, icon))
+      timer.stop()
+      times.append(timer.calculate_info(output_path))
+    return np.mean(times)
+
+  def calculate_memory(self, icon_finder, output_path: str) -> float:
+    """Uses MemoryTracker to calculate average memory used by icon_finder.
+
+    The average memory is via processing all the images and icons in
+    the dataset. It optionally also prints this information to a file
+    given by output_path.
+
+    Arguments:
+        icon_finder: IconFinder object that implements an
+        icon-finding algorithm.
+        output_path: If not empty, output will also be written
+        to this path.
+
+    Returns:
+        float -- average memory in MiBs that icon_finder used per image.
+    """
+    mems = []
+    for image, icon in zip(self.image_list, self.icon_list):
+      memtracker = util.MemoryTracker()  # pytype: disable=module-attr
       memtracker.run_and_track_memory((icon_finder.find_icons, (image, icon)))
-    return memtracker.calculate_info(output_path)
+      mems.append(memtracker.calculate_info(output_path))
+    return np.mean(mems)
 
   def find_icons(
       self,
@@ -184,15 +218,15 @@ class BenchmarkPipeline:
     return accuracy
 
   def multi_instance_eval(self):
-    # Not implemented yet.
-    return -1
+    raise NotImplementedError
 
-  def evaluate(self,
-               visualize: bool = False,
-               iou_threshold: float = defaults.IOU_THRESHOLD,
-               output_path: str = defaults.OUTPUT_PATH,
-               find_icon_option: str = defaults.FIND_ICON_OPTION,
-               multi_instance_icon: bool = False) -> Tuple[float, float, float]:
+  def evaluate(
+      self,
+      visualize: bool = False,
+      iou_threshold: float = defaults.IOU_THRESHOLD,
+      output_path: str = defaults.OUTPUT_PATH,
+      find_icon_option: str = defaults.FIND_ICON_OPTION,
+      multi_instance_icon: bool = False) -> Tuple[float, float, float]:
     """Integrated pipeline for testing calculated bounding boxes.
 
     Compares calculated bounding boxes to ground truth,
@@ -214,10 +248,11 @@ class BenchmarkPipeline:
           (default: {False})
 
     Returns:
-        float, float, float -- accuracy, runtime, memory of the bounding
+        float, float, float -- accuracy, avg runtime, avg memory of the bounding
          box detection process.
     """
-    runtime_secs, memory_mbs = self.find_icons(find_icon_option, output_path)
+    avg_runtime_secs, avg_memory_mbs = self.find_icons(find_icon_option,
+                                                       output_path)
     if visualize:
       self.visualize_bounding_boxes("images/gold/gold-visualized",
                                     self.gold_boxes)
@@ -228,7 +263,7 @@ class BenchmarkPipeline:
       accuracy = self.multi_instance_eval()
     else:
       accuracy = self.single_instance_eval(iou_threshold, output_path)
-    return accuracy, runtime_secs, memory_mbs
+    return accuracy, avg_runtime_secs, avg_memory_mbs
 
 
 if __name__ == "__main__":

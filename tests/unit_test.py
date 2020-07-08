@@ -22,8 +22,8 @@ def test_iou(box_1, box_2, expected):
 
 
 def test_benchmark():
-  benchmark = modules.benchmark_pipeline.BenchmarkPipeline()
-  accuracy, find_icon_time_secs, find_icon_memory_mbs = benchmark.evaluate()
-  assert find_icon_memory_mbs <= 1000
-  assert find_icon_time_secs <= 120
+  find_icon_benchmark = modules.benchmark_pipeline.BenchmarkPipeline()
+  accuracy, avg_time_secs, avg_memory_mibs = find_icon_benchmark.evaluate()
+  assert avg_memory_mibs <= 1000
+  assert avg_time_secs <= 60
   assert accuracy >= 0

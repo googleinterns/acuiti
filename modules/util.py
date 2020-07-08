@@ -27,14 +27,14 @@ class LatencyTimer:
     self.pr.disable()
 
   def calculate_info(self, output_path=defaults.OUTPUT_PATH):
-    """Prints latency information.
+    """Calculates latency info and optionally prints to file.
 
     Args:
         output_path: file path to print output to.
          (default: None)
 
     Returns:
-        float -- the total time taken between calls to start and stop
+        float -- the total seconds taken between calls to start and stop
     """
     s = io.StringIO()
     sort_by = pstats.SortKey.CUMULATIVE  # pytype: disable=module-attr
@@ -70,19 +70,19 @@ class MemoryTracker:
     self.memory_info = memory_profiler.memory_usage(func_args_tuple)
 
   def calculate_info(self, output_path=defaults.OUTPUT_PATH):
-    """Prints memory usage information.
+    """Calculates memory usage info and optionally prints to file.
 
     Args:
         output_path: file path to print output to.
          (default: None)
 
     Returns:
-        float -- the megabytes used by the function call
+        float -- the MiBs used by the function call
     """
     average_mb = self.memory_info
     if len(self.memory_info) > 1:
       average_mb = np.mean(self.memory_info)
-    output_msg = "Process took %f megabytes \n" % average_mb
+    output_msg = "Process took %f MiBs \n" % average_mb
     if output_path:
       with open(output_path, "a") as output_file:
         output_file.write(output_msg)
