@@ -26,7 +26,7 @@ class LatencyTimer:
   def stop(self):
     self.pr.disable()
 
-  def calculate_info(self, output_path=defaults.OUTPUT_PATH):
+  def calculate_info(self, output_path: str = defaults.OUTPUT_PATH) -> float:
     """Calculates latency info and optionally prints to file.
 
     Args:
@@ -69,7 +69,7 @@ class MemoryTracker:
     """
     self.memory_info = memory_profiler.memory_usage(func_args_tuple)
 
-  def calculate_info(self, output_path=defaults.OUTPUT_PATH):
+  def calculate_info(self, output_path: str = defaults.OUTPUT_PATH) -> float:
     """Calculates memory usage info and optionally prints to file.
 
     Args:
