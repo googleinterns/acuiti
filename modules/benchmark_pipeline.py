@@ -7,6 +7,7 @@ import cv2
 import matplotlib.pyplot
 from modules import defaults
 from modules import icon_finder_random
+from modules import icon_finder_shape_context
 from modules import util
 from modules.bounding_box import BoundingBox
 import numpy as np
@@ -21,7 +22,10 @@ _IMAGE_FEATURE_DESCRIPTION = {
     "box_xmax": tf.io.FixedLenFeature([], tf.float32),
 }
 
-_ICON_FINDERS = {"random": icon_finder_random.IconFinderRandom}  # pytype: disable=module-attr
+_ICON_FINDERS = {
+    "random": icon_finder_random.IconFinderRandom,
+    "shape-context": icon_finder_shape_context.IconFinderShapeContext
+}  # pytype: disable=module-attr
 
 
 def _parse_image_function(
@@ -141,6 +145,7 @@ class BenchmarkPipeline:
       self.proposed_boxes.append(icon_finder.find_icons(image, icon))
       timer.stop()
       times.append(timer.calculate_info(output_path))
+    print("Average time per image: %f" % np.mean(times))
     return np.mean(times)
 
   def calculate_memory(self, icon_finder, output_path: str) -> float:
@@ -164,6 +169,7 @@ class BenchmarkPipeline:
       memtracker = util.MemoryTracker()  # pytype: disable=module-attr
       memtracker.run_and_track_memory((icon_finder.find_icons, (image, icon)))
       mems.append(memtracker.calculate_info(output_path))
+    print("Average MiBs per image: %f" % np.mean(mems))
     return np.mean(mems)
 
   def find_icons(

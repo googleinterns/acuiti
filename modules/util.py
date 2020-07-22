@@ -44,7 +44,6 @@ class LatencyTimer:
     if output_path:
       with open(output_path, "a") as output_file:
         output_file.write(info)
-    print(info)
     # parse cProfiler's output to get the total time as a float
     first_line = info.partition("\n")[0]
     total_time = first_line.split(" ")[-2]
@@ -86,5 +85,4 @@ class MemoryTracker:
     if output_path:
       with open(output_path, "a") as output_file:
         output_file.write(output_msg)
-    print(output_msg)
     return average_mb
