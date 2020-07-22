@@ -1,0 +1,84 @@
+"""This file contains utility functions for find icon computer vision algorithms."""
+from typing import List, Tuple
+
+import cv2
+import numpy as np
+import sklearn.cluster
+
+
+def shape_context_descriptor(icon_contour: List[List[List[int]]],
+                             img_contour: List[List[List[int]]]) -> float:
+  """Calculates the shape context distance bewteen two contours.
+
+  Arguments:
+      icon_contour: A list containing 2 lists of points.
+       Represents the template icon contour
+      img_contour: A list containing 2 lists of points.
+       Represents the image patch contour.
+       (Note: function will fail unless there are exactly 2 lists of points.)
+
+  Returns:
+      float: the shape context distance between the two contours.
+  """
+  extractor = cv2.createShapeContextDistanceExtractor()
+  return extractor.computeDistance(icon_contour, img_contour)
+
+
+def detect_contours(image: np.ndarray,
+                    use_bilateral_filter: bool) -> List[List[List[int]]]:
+  """Detects the contours in the image.
+
+  Arguments:
+      image: Input image, as ndarray.
+      use_bilateral_filter: whether to use bilateral filter
+       to smooth out edges before Canny edge detection.
+
+  Returns:
+      List[List[List]]: List of contour groups,
+       each of which is a list of points.
+  """
+  imgray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+  if use_bilateral_filter:
+    imgray = cv2.bilateralFilter(imgray, 5, 20, 50)
+  edges = cv2.Canny(imgray, 10, 25)
+  img_contours, _ = cv2.findContours(edges, cv2.RETR_TREE,
+                                     cv2.CHAIN_APPROX_NONE)
+  return img_contours
+
+
+def cluster_contours_dbscan(
+    img_contours: List[List[int]],
+    eps: float = 10,
+    min_samples: int = 5) -> Tuple[List[List[List[int]]], List[List[bool]]]:
+  """Group contours using DBSCAN.
+
+  Arguments:
+      img_contours: Flattened list of points in the contour of an image.
+      eps: The maximum distance a point can be away to be considered
+       within neighborhood of another point. (default: {10})
+      min_samples: The number of points needed within a neighborhood
+       of a point for it to be a core point. (default: {5})
+
+  Returns:
+      List of groups of points, each representing its own contour,
+       and a masked list of groups of bool values, each representing
+        which points are core points or not.
+  """
+  clusters = sklearn.cluster.DBSCAN(eps=eps,
+                                    min_samples=min_samples).fit(img_contours)
+  n_clusters = len(set(
+      clusters.labels_)) - (1 if -1 in clusters.labels_ else 0)
+  n_noise = list(clusters.labels_).count(-1)
+  print("Estimated number of clusters: %d" % n_clusters)
+  print("Estimated number of noise points: %d" % n_noise)
+  core_samples_mask = np.zeros_like(clusters.labels_, dtype=bool)
+  core_samples_mask[clusters.core_sample_indices_] = True
+  contour_groups = []
+  core_samples_mask_groups = []
+  for i in range(0, n_clusters):
+    contour_group = img_contours[np.argwhere(clusters.labels_ == i)]
+    contour_groups.append(np.vstack(contour_group).squeeze())
+    core_samples_mask_groups.append(
+        np.vstack(
+            core_samples_mask[np.argwhere(clusters.labels_ == i)]).squeeze())
+  return contour_groups, core_samples_mask_groups
