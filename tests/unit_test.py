@@ -1,5 +1,7 @@
+from modules import algo_util
 import modules.benchmark_pipeline
 from modules.bounding_box import BoundingBox
+import numpy as np
 import pytest
 
 box_a = BoundingBox(20, 20, 29, 29)
@@ -19,6 +21,26 @@ bounding_box_tests = [(box_a, box_b, 25 / 700), (box_a, box_c, 0),
 @pytest.mark.parametrize("box_1,box_2,expected", bounding_box_tests)
 def test_iou(box_1, box_2, expected):
   assert box_1.calculate_iou(box_2) == expected
+
+
+icon_contour_1 = [[0, 0], [0, 4], [4, 0], [4, 4]]
+icon_contour_2 = [[0, 0], [0, 6], [6, 0], [6, 6]]
+icon_contour_3 = [[0, 0], [0, 6], [4, 0], [4, 6]]
+icon_contour_1_3d = np.array([icon_contour_1, icon_contour_1])
+icon_contour_2_3d = np.array([icon_contour_2, icon_contour_2])
+icon_contour_3_3d = np.array([icon_contour_3, icon_contour_3])
+# covers: same square, different size square, square vs rectangle
+# all should have ~0 distance
+shape_context_tests = [
+    (icon_contour_1_3d, icon_contour_2_3d, 1e-15),
+    (icon_contour_1_3d, icon_contour_1_3d, 1e-15),
+    (icon_contour_1_3d, icon_contour_3_3d, 1e-15),
+]
+
+
+@pytest.mark.parametrize("icon_1,icon_2,expected", shape_context_tests)
+def test_shape_context(icon_1, icon_2, expected):
+  assert algo_util.shape_context_descriptor(icon_1, icon_2) <= expected
 
 
 def test_benchmark():
