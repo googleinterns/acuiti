@@ -1,6 +1,6 @@
 """This module has an IconFinderShapeContext class for finding bounding boxes.
 """
-from typing import List
+from typing import List, Tuple
 
 import cv2
 
@@ -26,18 +26,20 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
     self.nms_threshold = nms_threshold
 
   def _get_min_distance_contours(
-      self, icon_contour: List[List[int]],
-      img_contours_clusters: List[List[List[int]]]) -> List[List[int]]:
-    """Helper function to find the image contour closest to the icon.
+      self, icon_contour: np.ndarray,
+      img_contours_clusters: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    """Helper function to find the image contours closest to the icon.
 
     Arguments:
-        icon_contour: List of points representing the icon's contour.
-        img_contours_clusters: List of lists of points representing
-         each of the image's contour clusters.
+        icon_contour: List of points [x, y] representing the icon's contour.
+        More precisely, the type is: List[List[int]]
+        img_contours_clusters: List of lists of points [x, y] representing
+         each of the image's contour clusters. List[List[List[int]]]
 
     Returns:
-        List of points (x,y) representing the contour with the
-         minimal distance from the icon.
+        List of contours that are below the distance threshold
+        away from the icon: List[List[int]];
+        List of distances corresponding to each contour: List[float]
     """
 
     min_distance_contours = []

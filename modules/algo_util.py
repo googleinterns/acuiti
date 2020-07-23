@@ -7,8 +7,8 @@ import numpy as np
 import sklearn.cluster
 
 
-def shape_context_descriptor(icon_contour: List[List[List[int]]],
-                             img_contour: List[List[List[int]]]) -> float:
+def shape_context_descriptor(icon_contour: np.ndarray,
+                             img_contour: np.ndarray) -> float:
   """Calculates the shape context distance bewteen two contours.
 
   Arguments:
@@ -35,8 +35,7 @@ def detect_contours(image: np.ndarray,
        to smooth out edges before Canny edge detection.
 
   Returns:
-      List[List[List]]: List of contour groups,
-       each of which is a list of points.
+      List of contour groups,each of which is a list of points.
   """
   imgray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
   if use_bilateral_filter:
@@ -48,13 +47,14 @@ def detect_contours(image: np.ndarray,
 
 
 def cluster_contours_dbscan(
-    img_contours: List[List[int]],
+    img_contours: np.ndarray,
     eps: float = 10,
-    min_samples: int = 5) -> Tuple[List[List[List[int]]], List[List[bool]]]:
+    min_samples: int = 5) -> Tuple[List[np.ndarray], List[np.ndarray]]:
   """Group contours using DBSCAN.
 
   Arguments:
-      img_contours: Flattened list of points in the contour of an image.
+      img_contours: Flattened list of all points in all contours of an image.
+      That is: List[List[int]]
       eps: The maximum distance a point can be away to be considered
        within neighborhood of another point. (default: {10})
       min_samples: The number of points needed within a neighborhood
@@ -63,7 +63,8 @@ def cluster_contours_dbscan(
   Returns:
       List of groups of points, each representing its own contour,
        and a masked list of groups of bool values, each representing
-        which points are core points or not.
+        which points are core points or not. The contours and masks
+        are np.ndarrays of roughly List[List[int]] and List[bool].
   """
   clusters = sklearn.cluster.DBSCAN(eps=eps,
                                     min_samples=min_samples).fit(img_contours)
