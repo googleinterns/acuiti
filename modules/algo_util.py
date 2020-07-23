@@ -89,17 +89,17 @@ def get_nms_bounding_boxes(
     contours: np.ndarray,
     confidences: np.ndarray,
     confidence_threshold: float,
-    nms_threshold: float,
+    nms_threshold: float = 0.9,
 ) -> List[BoundingBox]:
   """Returns bounding boxes after filtering through non-max suppression.
 
   Arguments:
-      contours: list of contours to filter. 
+      contours: list of contours (which is a list of x,y points) to filter.
       confidences: confidence scores associated with each contour.
       confidence_threshold: only keep bboxes with
-       confidence scores above this threshold.
-      nms_threshold: two bboxes with an IOU greater
-       than this threshold are considered the same bbox.
+       confidence scores (strictly) above this threshold.
+      nms_threshold: two bboxes with an IOU >=
+       this threshold are considered the same bbox. (default: 0.9)
 
   Returns:
       List of BoundingBoxes that passed the filter.
