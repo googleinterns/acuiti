@@ -85,4 +85,4 @@ class MemoryTracker:
     if output_path:
       with open(output_path, "a") as output_file:
         output_file.write(output_msg)
-    return average_mb
+    return float(average_mb)
