@@ -111,11 +111,12 @@ class BenchmarkPipeline:
     """
     for i, image_bgr in enumerate(self.image_list):
       box_list = boxes[i]
+      im_bgr_copy = image_bgr.copy()
       for box in box_list:
         # top left and bottom right corner of rectangle
-        cv2.rectangle(image_bgr, (box.min_x, box.min_y),
+        cv2.rectangle(im_bgr_copy, (box.min_x, box.min_y),
                       (box.max_x, box.max_y), (0, 255, 0), 3)
-      image_rgb = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
+      image_rgb = cv2.cvtColor(im_bgr_copy, cv2.COLOR_BGR2RGB)
 
       if image_rgb is None:
         print("Could not read the image.")

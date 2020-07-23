@@ -2,6 +2,7 @@
 from typing import List, Tuple
 
 import cv2
+from modules.bounding_box import BoundingBox
 import numpy as np
 import sklearn.cluster
 
@@ -11,11 +12,11 @@ def shape_context_descriptor(icon_contour: List[List[List[int]]],
   """Calculates the shape context distance bewteen two contours.
 
   Arguments:
-      icon_contour: A list containing 2 lists of points.
+      icon_contour: A list with shape (n, 1, 2).
        Represents the template icon contour
-      img_contour: A list containing 2 lists of points.
+      img_contour: A list with shape (n, 1, 2).
        Represents the image patch contour.
-       (Note: function will fail unless there are exactly 2 lists of points.)
+       (Note: function will fail unless the number of channels is 2.)
 
   Returns:
       float: the shape context distance between the two contours.
@@ -82,3 +83,37 @@ def cluster_contours_dbscan(
         np.vstack(
             core_samples_mask[np.argwhere(clusters.labels_ == i)]).squeeze())
   return contour_groups, core_samples_mask_groups
+
+
+def get_nms_bounding_boxes(
+    contours: np.ndarray,
+    confidences: np.ndarray,
+    confidence_threshold: float,
+    nms_threshold: float,
+) -> List[BoundingBox]:
+  """Returns bounding boxes after filtering through non-max suppression.
+
+  Arguments:
+      contours: list of contours to filter. 
+      confidences: confidence scores associated with each contour.
+      confidence_threshold: only keep bboxes with
+       confidence scores above this threshold.
+      nms_threshold: two bboxes with an IOU greater
+       than this threshold are considered the same bbox.
+
+  Returns:
+      List of BoundingBoxes that passed the filter.
+  """
+  bboxes = []
+  rects = []
+  for contour in contours:
+    contours_poly = cv2.approxPolyDP(contour, 3, True)
+    bound_rect = cv2.boundingRect(contours_poly)
+    rects.append(bound_rect)
+    bbox = BoundingBox(bound_rect[0], bound_rect[1],
+                       bound_rect[0] + bound_rect[2],
+                       bound_rect[1] + bound_rect[3])
+    bboxes.append(bbox)
+  indices = cv2.dnn.NMSBoxes(rects, confidences, confidence_threshold,
+                             nms_threshold)
+  return [bboxes[i[0]] for i in indices]
