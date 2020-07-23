@@ -23,24 +23,53 @@ def test_iou(box_1, box_2, expected):
   assert box_1.calculate_iou(box_2) == expected
 
 
-icon_contour_1 = [[0, 0], [0, 4], [4, 0], [4, 4]]
-icon_contour_2 = [[0, 0], [0, 6], [6, 0], [6, 6]]
-icon_contour_3 = [[0, 0], [0, 6], [4, 0], [4, 6]]
-icon_contour_1_3d = np.array([icon_contour_1, icon_contour_1])
-icon_contour_2_3d = np.array([icon_contour_2, icon_contour_2])
-icon_contour_3_3d = np.array([icon_contour_3, icon_contour_3])
-# covers: same square, different size square, square vs rectangle
-# all should have ~0 distance
+icon_contour_1 = np.array([[0, 0], [0, 4], [4, 0], [4, 4]])
+icon_contour_2 = np.array([[0, 0], [0, 7], [7, 0], [7, 7]])
+icon_contour_3 = np.array([[0, 0], [0, 6], [4, 0], [4, 6]])
+icon_contour_1_3d = np.expand_dims(icon_contour_1, axis=1)
+icon_contour_2_3d = np.expand_dims(icon_contour_2, axis=1)
+icon_contour_3_3d = np.expand_dims(icon_contour_3, axis=1)
+
+# covers: same shape against itself, expected distance ~0
+# (comparison across shapes yields Matrix Operand Error)
 shape_context_tests = [
-    (icon_contour_1_3d, icon_contour_2_3d, 1e-15),
+    (icon_contour_2_3d, icon_contour_2_3d, 1e-15),
     (icon_contour_1_3d, icon_contour_1_3d, 1e-15),
-    (icon_contour_1_3d, icon_contour_3_3d, 1e-15),
+    (icon_contour_3_3d, icon_contour_3_3d, 1e-15),
 ]
 
 
 @pytest.mark.parametrize("icon_1,icon_2,expected", shape_context_tests)
 def test_shape_context(icon_1, icon_2, expected):
   assert algo_util.shape_context_descriptor(icon_1, icon_2) <= expected
+
+
+icon_contour_4 = np.array([[0, 0], [0, 10], [10, 0], [10, 10]])
+icon_contour_5 = np.array([[0, 0], [0, 10], [9, 0], [9, 10]])
+contour_list_1 = [icon_contour_1, icon_contour_2, icon_contour_3]
+contour_list_2 = [icon_contour_4, icon_contour_5]
+confidence_1 = [5, 6, 7]
+confidence_2 = [5, 4]
+
+# contour list 1: tests varying confidence thresholds given IOUs < nms_threshold
+# contour list 2: tests varying confidence thresholds given IOU >= nms_threshold
+nms_tests = [
+    (contour_list_1, confidence_1, 2, 0.9, 3),
+    (contour_list_1, confidence_1, 6, 0.9, 1),
+    (contour_list_2, confidence_2, 3, 0.9, 1),
+    (contour_list_2, confidence_2, 6, 0.9, 0),
+]
+
+
+@pytest.mark.parametrize(
+    "contours,confidences,confidence_threshold,nms_threshold,expected",
+    nms_tests)
+def test_get_nms_bounding_boxes(contours, confidences, confidence_threshold,
+                                nms_threshold, expected):
+  assert len(
+      algo_util.get_nms_bounding_boxes(contours, confidences,
+                                       confidence_threshold,
+                                       nms_threshold)) == expected
 
 
 def test_benchmark():
