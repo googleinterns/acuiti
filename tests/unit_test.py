@@ -1,4 +1,4 @@
-from modules import algo_util
+from modules import algorithms
 import modules.benchmark_pipeline
 from modules.bounding_box import BoundingBox
 import numpy as np
@@ -23,12 +23,12 @@ def test_iou(box_1, box_2, expected):
   assert box_1.calculate_iou(box_2) == expected
 
 
-icon_contour_1 = np.array([[0, 0], [0, 4], [4, 0], [4, 4]])
-icon_contour_2 = np.array([[0, 0], [0, 7], [7, 0], [7, 7]])
-icon_contour_3 = np.array([[0, 0], [0, 6], [4, 0], [4, 6]])
-icon_contour_1_3d = np.expand_dims(icon_contour_1, axis=1)
-icon_contour_2_3d = np.expand_dims(icon_contour_2, axis=1)
-icon_contour_3_3d = np.expand_dims(icon_contour_3, axis=1)
+_ICON_CONTOUR_1 = np.array([[0, 0], [0, 4], [4, 0], [4, 4]])
+_ICON_CONTOUR_2 = np.array([[0, 0], [0, 7], [7, 0], [7, 7]])
+_ICON_CONTOUR_3 = np.array([[0, 0], [0, 6], [4, 0], [4, 6]])
+icon_contour_1_3d = np.expand_dims(_ICON_CONTOUR_1, axis=1)
+icon_contour_2_3d = np.expand_dims(_ICON_CONTOUR_2, axis=1)
+icon_contour_3_3d = np.expand_dims(_ICON_CONTOUR_3, axis=1)
 
 # covers: same shape against itself, expected distance ~0
 # (comparison across shapes yields Matrix Operand Error)
@@ -41,12 +41,12 @@ shape_context_tests = [
 
 @pytest.mark.parametrize("icon_1,icon_2,expected", shape_context_tests)
 def test_shape_context(icon_1, icon_2, expected):
-  assert algo_util.shape_context_descriptor(icon_1, icon_2) <= expected
+  assert algorithms.shape_context_distance(icon_1, icon_2) <= expected
 
 
 icon_contour_4 = np.array([[0, 0], [0, 10], [10, 0], [10, 10]])
 icon_contour_5 = np.array([[0, 0], [0, 10], [9, 0], [9, 10]])
-contour_list_1 = [icon_contour_1, icon_contour_2, icon_contour_3]
+contour_list_1 = [_ICON_CONTOUR_1, _ICON_CONTOUR_2, _ICON_CONTOUR_3]
 contour_list_2 = [icon_contour_4, icon_contour_5]
 confidence_1 = [5, 6, 7]
 confidence_2 = [5, 4]
@@ -67,9 +67,9 @@ nms_tests = [
 def test_get_nms_bounding_boxes(contours, confidences, confidence_threshold,
                                 nms_threshold, expected):
   assert len(
-      algo_util.get_nms_bounding_boxes(contours, confidences,
-                                       confidence_threshold,
-                                       nms_threshold)) == expected
+      algorithms.suppress_overlapping_bounding_boxes(contours, confidences,
+                                                    confidence_threshold,
+                                                    nms_threshold)) == expected
 
 
 def test_benchmark():
