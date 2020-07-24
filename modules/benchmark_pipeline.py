@@ -15,10 +15,18 @@ import tensorflow as tf
 _IMAGE_FEATURE_DESCRIPTION = {
     "encoded_image_png": tf.io.FixedLenFeature([], tf.string),
     "encoded_icon_png": tf.io.FixedLenFeature([], tf.string),
-    "box_ymin": tf.io.FixedLenFeature([], tf.float32),
-    "box_xmin": tf.io.FixedLenFeature([], tf.float32),
-    "box_ymax": tf.io.FixedLenFeature([], tf.float32),
-    "box_xmax": tf.io.FixedLenFeature([], tf.float32),
+    "box_ymin": tf.io.FixedLenSequenceFeature([],
+                                              tf.float32,
+                                              allow_missing=True),
+    "box_xmin": tf.io.FixedLenSequenceFeature([],
+                                              tf.float32,
+                                              allow_missing=True),
+    "box_ymax": tf.io.FixedLenSequenceFeature([],
+                                              tf.float32,
+                                              allow_missing=True),
+    "box_xmax": tf.io.FixedLenSequenceFeature([],
+                                              tf.float32,
+                                              allow_missing=True),
 }
 
 _ICON_FINDERS = {"random": icon_finder_random.IconFinderRandom}  # pytype: disable=module-attr
@@ -38,25 +46,26 @@ def _parse_image_dataset(
 
 def _parse_gold_boxes(
     parsed_image_dataset: tf.python.data.ops.dataset_ops.MapDataset
-) -> List[BoundingBox]:
+) -> List[List[BoundingBox]]:
   """Retrieve a list of bounding boxes from dataset.
 
   Arguments:
       parsed_image_dataset: Original dataset read from TFRecord
 
   Returns:
-      List of ground truth BoundingBoxes.
+      List of lists of ground truth BoundingBoxes.
   """
-  gold_boxes = []
+  all_images_gold_boxes = []
   for image_features in parsed_image_dataset:
-    # This will need to be updated once the new TFRecord format
-    # supports multiple BBoxes
-    gold_box = BoundingBox(image_features["box_xmin"],
-                           image_features["box_ymin"],
-                           image_features["box_xmax"],
-                           image_features["box_ymax"])
-    gold_boxes.append([gold_box])
-  return gold_boxes
+    single_image_gold_boxes = []
+    for xmin, ymin, xmax, ymax in zip(image_features["box_xmin"],
+                                      image_features["box_ymin"],
+                                      image_features["box_xmax"],
+                                      image_features["box_ymax"]):
+      gold_box = BoundingBox(xmin, ymin, xmax, ymax)
+      single_image_gold_boxes.append(gold_box)
+    all_images_gold_boxes.append(single_image_gold_boxes)
+  return all_images_gold_boxes
 
 
 def _parse_images_and_icons(
@@ -217,7 +226,8 @@ class BenchmarkPipeline:
     print("Accuracy: %f\n" % accuracy)
     return accuracy
 
-  def multi_instance_eval(self):
+  def multi_instance_eval(self, iou_threshold: float,
+                          output_path: str) -> float:
     raise NotImplementedError
 
   def evaluate(
