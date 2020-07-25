@@ -124,7 +124,8 @@ def _count_true_false_pos_neg(
         if iou > max_iou:
           max_iou = iou
           max_gold_box = gold_box
-      # update matches
+      # if the gold box already has a match, increase false positives
+      # (condition holds even if there are no gold boxes; max_gold_box = None)
       proposed_iou = max_iou
       if max_gold_box in matches:
         num_false_pos += 1

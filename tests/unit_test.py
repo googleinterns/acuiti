@@ -41,6 +41,7 @@ evaluation_tests = [(1, box_list_1, box_list_2, (1, 1, 1)),
                     (1, box_list_3, box_list_5, (0, 0, 0))]
 
 
+# expected is a tuple: (accuracy, precision, recall)
 @pytest.mark.parametrize("iou_threshold,proposed_boxes,gold_boxes,expected",
                          evaluation_tests)
 def test_evaluate_proposed_bounding_boxes(iou_threshold, proposed_boxes,
