@@ -69,6 +69,8 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
       downsampled_icon_contour = icon_contour
 
     for image_contour_cluster in image_contours_clusters:
+      # expand the 1st dimension so that the shape is (n, 1, 2),
+      # which is what shape context algorithm wants
       icon_contour_3d = np.expand_dims(downsampled_icon_contour,
                                        axis=1)
       if image_contour_cluster.shape[0] > self.sc_max_num_points:
@@ -78,6 +80,8 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
                              replace=False), :]
       else:
         downsampled_image_contour = image_contour_cluster
+      # expand the 1st dimension so that the shape is (n, 1, 2),
+      # which is what shape context algorithm wants
       image_contour_3d = np.expand_dims(downsampled_image_contour,
                                         axis=1)
       try:
@@ -117,7 +121,8 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
     sorted_distances = nearby_distances[sorted_indices]
     print("Minimum distance achieved: %f" % sorted_distances[0])
     # invert distances since we want confidence scores
+    bboxes, rects = algorithms.get_bounding_boxes_from_contours(sorted_contours)
     bboxes = algorithms.suppress_overlapping_bounding_boxes(
-        sorted_contours, 1 / sorted_distances, 1 / self.sc_distance_threshold,
+        bboxes, rects, 1 / sorted_distances, 1 / self.sc_distance_threshold,
         self.nms_iou_threshold)
     return bboxes

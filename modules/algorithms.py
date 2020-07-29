@@ -93,24 +93,16 @@ def cluster_contours_dbscan(
   return contour_groups, core_samples_mask_groups
 
 
-def suppress_overlapping_bounding_boxes(
-    contours: np.ndarray,
-    confidences: np.ndarray,
-    confidence_threshold: float,
-    iou_threshold: float = 0.9,
-) -> List[BoundingBox]:
-  """Returns bounding boxes after filtering through non-max suppression.
+def get_bounding_boxes_from_contours(
+    contours: np.ndarray) -> Tuple[List[BoundingBox], List[List[int]]]:
+  """Convert a list of contours into a list of corresponding bounding boxes.
 
   Arguments:
-      contours: list of contours (which is a list of x,y points) to filter.
-      confidences: confidence scores associated with each contour.
-      confidence_threshold: only keep bboxes with
-       confidence scores (strictly) above this threshold.
-      iou_threshold: two bboxes with an IOU >=
-       this threshold are considered the same bbox. (default: 0.9)
+      contours: list of contours (which is a list of x,y points) to convert
 
   Returns:
-      List of BoundingBoxes that passed the filter.
+      Tuple[List of bounding boxes as BoundingBoxes,
+      List of bounding boxes as OpenCV rectangles]
   """
   bboxes = []
   rects = []
@@ -120,6 +112,30 @@ def suppress_overlapping_bounding_boxes(
     rects.append([x, y, w, h])
     bbox = BoundingBox(x, y, x + w, y + h)
     bboxes.append(bbox)
+  return bboxes, rects
+
+
+def suppress_overlapping_bounding_boxes(
+    bboxes: List[BoundingBox],
+    rects: List[List[int]],
+    confidences: np.ndarray,
+    confidence_threshold: float,
+    iou_threshold: float = 0.9,
+) -> List[BoundingBox]:
+  """Returns bounding boxes after filtering through non-max suppression.
+
+  Arguments:
+      bboxes: list of BoundingBoxes which we will filter
+      rects: list of OpenCV rects corresponding to bboxes
+      confidences: confidence scores associated with each contour.
+      confidence_threshold: only keep bboxes with
+       confidence scores (strictly) above this threshold.
+      iou_threshold: two bboxes with an IOU >
+       this threshold are considered the same bbox. (default: 0.9)
+
+  Returns:
+      List of BoundingBoxes that passed the filter.
+  """
   indices = cv2.dnn.NMSBoxes(rects, confidences, confidence_threshold,
                              iou_threshold)
   return [bboxes[i[0]] for i in indices]
