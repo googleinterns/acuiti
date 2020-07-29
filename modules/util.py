@@ -26,7 +26,7 @@ class LatencyTimer:
   def stop(self):
     self.pr.disable()
 
-  def calculate_info(self, output_path=defaults.OUTPUT_PATH):
+  def calculate_info(self, output_path: str = defaults.OUTPUT_PATH) -> float:
     """Calculates latency info and optionally prints to file.
 
     Args:
@@ -44,7 +44,6 @@ class LatencyTimer:
     if output_path:
       with open(output_path, "a") as output_file:
         output_file.write(info)
-    print(info)
     # parse cProfiler's output to get the total time as a float
     first_line = info.partition("\n")[0]
     total_time = first_line.split(" ")[-2]
@@ -69,7 +68,7 @@ class MemoryTracker:
     """
     self.memory_info = memory_profiler.memory_usage(func_args_tuple)
 
-  def calculate_info(self, output_path=defaults.OUTPUT_PATH):
+  def calculate_info(self, output_path: str = defaults.OUTPUT_PATH) -> float:
     """Calculates memory usage info and optionally prints to file.
 
     Args:
@@ -86,5 +85,4 @@ class MemoryTracker:
     if output_path:
       with open(output_path, "a") as output_file:
         output_file.write(output_msg)
-    print(output_msg)
-    return average_mb
+    return float(average_mb)
