@@ -9,6 +9,7 @@ from modules import defaults
 from modules import icon_finder_random
 from modules import util
 from modules.bounding_box import BoundingBox
+from modules.correctness_metrics import CorrectnessMetrics
 import numpy as np
 
 _ICON_FINDERS = {"random": icon_finder_random.IconFinderRandom}  # pytype: disable=module-attr
@@ -134,7 +135,7 @@ class BenchmarkPipeline:
       output_path: str = defaults.OUTPUT_PATH,
       find_icon_option: str = defaults.FIND_ICON_OPTION,
       multi_instance_icon: bool = False
-  ) -> Tuple[float, float, float, float, float]:
+  ) -> Tuple[CorrectnessMetrics, float, float]:
     """Integrated pipeline for testing calculated bounding boxes.
 
     Compares calculated bounding boxes to ground truth,
@@ -156,7 +157,7 @@ class BenchmarkPipeline:
           (default: {False})
 
     Returns:
-        Tuple(accuracy, precision, recall, avg runtime, avg memory of
+        Tuple(CorrectnessMetrics, avg runtime, avg memory of
          the bounding box detection process.)
     """
     avg_runtime_secs, avg_memory_mbs = self.find_icons(find_icon_option,
@@ -168,16 +169,16 @@ class BenchmarkPipeline:
           "images/" + find_icon_option + "/" + find_icon_option +
           "-visualized", self.proposed_boxes)
     if multi_instance_icon:
-      accuracy, precision, recall = util.evaluate_proposed_bounding_boxes(
+      correctness = util.evaluate_proposed_bounding_boxes(
           iou_threshold, self.proposed_boxes, self.gold_boxes, output_path)
     else:
-      accuracy, precision, recall = util.evaluate_proposed_bounding_boxes(
+      correctness = util.evaluate_proposed_bounding_boxes(
           iou_threshold,
           [[boxes[0]] for boxes in self.proposed_boxes],
           [[boxes[0]] for boxes in self.gold_boxes],
           output_path
       )
-    return accuracy, precision, recall, avg_runtime_secs, avg_memory_mbs
+    return correctness, avg_runtime_secs, avg_memory_mbs
 
 
 if __name__ == "__main__":
