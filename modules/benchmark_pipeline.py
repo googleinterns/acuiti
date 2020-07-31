@@ -1,7 +1,7 @@
 """BenchmarkPipeline class and tfRecord utility functions."""
 
 import argparse
-from typing import Any, List, Tuple
+from typing import List, Tuple
 
 import cv2
 import matplotlib.pyplot
@@ -10,80 +10,13 @@ from modules import icon_finder_random
 from modules import icon_finder_shape_context
 from modules import util
 from modules.bounding_box import BoundingBox
+from modules.correctness_metrics import CorrectnessMetrics
 import numpy as np
-import tensorflow as tf
-
-_IMAGE_FEATURE_DESCRIPTION = {
-    "encoded_image_png": tf.io.FixedLenFeature([], tf.string),
-    "encoded_icon_png": tf.io.FixedLenFeature([], tf.string),
-    "box_ymin": tf.io.FixedLenFeature([], tf.float32),
-    "box_xmin": tf.io.FixedLenFeature([], tf.float32),
-    "box_ymax": tf.io.FixedLenFeature([], tf.float32),
-    "box_xmax": tf.io.FixedLenFeature([], tf.float32),
-}
 
 _ICON_FINDERS = {
     "random": icon_finder_random.IconFinderRandom,
     "shape-context": icon_finder_shape_context.IconFinderShapeContext
 }  # pytype: disable=module-attr
-
-
-def _parse_image_function(
-    example_proto: tf.python.framework.ops.Tensor) -> Any:
-  return tf.io.parse_single_example(example_proto, _IMAGE_FEATURE_DESCRIPTION)
-
-
-def _parse_image_dataset(
-    path: str) -> tf.python.data.ops.dataset_ops.MapDataset:
-  raw_dataset = tf.data.TFRecordDataset(path)
-  parsed_image_dataset = raw_dataset.map(_parse_image_function)
-  return parsed_image_dataset
-
-
-def _parse_gold_boxes(
-    parsed_image_dataset: tf.python.data.ops.dataset_ops.MapDataset
-) -> List[BoundingBox]:
-  """Retrieve a list of bounding boxes from dataset.
-
-  Arguments:
-      parsed_image_dataset: Original dataset read from TFRecord
-
-  Returns:
-      List of ground truth BoundingBoxes.
-  """
-  gold_boxes = []
-  for image_features in parsed_image_dataset:
-    # This will need to be updated once the new TFRecord format
-    # supports multiple BBoxes
-    gold_box = BoundingBox(image_features["box_xmin"],
-                           image_features["box_ymin"],
-                           image_features["box_xmax"],
-                           image_features["box_ymax"])
-    gold_boxes.append([gold_box])
-  return gold_boxes
-
-
-def _parse_images_and_icons(
-    parsed_image_dataset: tf.python.data.ops.dataset_ops.MapDataset
-) -> Tuple[List[np.ndarray], List[np.ndarray]]:
-  """Private function for parsing images and icons.
-
-  Arguments:
-      parsed_image_dataset: image dataset read from TFRecord
-
-  Returns:
-      (List of images, List of icons)
-  """
-  image_list = []
-  icon_list = []
-  for image_features in parsed_image_dataset:
-    image_raw = image_features["encoded_image_png"].numpy()
-    image_bgr = cv2.imdecode(np.frombuffer(image_raw, dtype=np.uint8), -1)
-    image_list.append(image_bgr)
-    icon_raw = image_features["encoded_icon_png"].numpy()
-    icon_bgr = cv2.imdecode(np.frombuffer(icon_raw, dtype=np.uint8), -1)
-    icon_list.append(icon_bgr)
-  return image_list, icon_list
 
 
 class BenchmarkPipeline:
@@ -95,9 +28,9 @@ class BenchmarkPipeline:
   """
 
   def __init__(self, tfrecord_path: str = defaults.TFRECORD_PATH):
-    parsed_image_dataset = _parse_image_dataset(tfrecord_path)
-    self.gold_boxes = _parse_gold_boxes(parsed_image_dataset)
-    self.image_list, self.icon_list = _parse_images_and_icons(
+    parsed_image_dataset = util.parse_image_dataset(tfrecord_path)
+    self.gold_boxes = util.parse_gold_boxes(parsed_image_dataset)
+    self.image_list, self.icon_list = util.parse_images_and_icons(
         parsed_image_dataset)
     self.proposed_boxes = []
 
@@ -202,38 +135,14 @@ class BenchmarkPipeline:
                                   output_path), self.calculate_memory(
                                       icon_finder, output_path)
 
-  def single_instance_eval(self, iou_threshold: float,
-                           output_path: str) -> float:
-    """Evaluates proposed bounding boxes with one instance of icon in image.
-
-    Arguments:
-        iou_threshold: Threshold above which a bbox is accurate
-        output_path: Output path of writing accuracy info
-
-    Returns:
-        float -- accuracy calculated
-    """
-    ious = []
-    for (proposed_box_list, gold_box_list) in zip(self.proposed_boxes,
-                                                  self.gold_boxes):
-      ious.append(proposed_box_list[0].calculate_iou(gold_box_list[0]))
-    accuracy = np.sum(np.array(ious) > iou_threshold) / len(ious)
-    if output_path:
-      with open(output_path, "a") as output_file:
-        output_file.write("Accuracy: %f\n" % accuracy)
-    print("Accuracy: %f\n" % accuracy)
-    return accuracy
-
-  def multi_instance_eval(self):
-    raise NotImplementedError
-
   def evaluate(
       self,
       visualize: bool = False,
       iou_threshold: float = defaults.IOU_THRESHOLD,
       output_path: str = defaults.OUTPUT_PATH,
       find_icon_option: str = defaults.FIND_ICON_OPTION,
-      multi_instance_icon: bool = False) -> Tuple[float, float, float]:
+      multi_instance_icon: bool = False
+  ) -> Tuple[CorrectnessMetrics, float, float]:
     """Integrated pipeline for testing calculated bounding boxes.
 
     Compares calculated bounding boxes to ground truth,
@@ -255,8 +164,8 @@ class BenchmarkPipeline:
           (default: {False})
 
     Returns:
-        float, float, float -- accuracy, avg runtime, avg memory of the bounding
-         box detection process.
+        Tuple(CorrectnessMetrics, avg runtime, avg memory of
+         the bounding box detection process.)
     """
     avg_runtime_secs, avg_memory_mbs = self.find_icons(find_icon_option,
                                                        output_path)
@@ -267,10 +176,16 @@ class BenchmarkPipeline:
           "images/" + find_icon_option + "/" + find_icon_option +
           "-visualized", self.proposed_boxes)
     if multi_instance_icon:
-      accuracy = self.multi_instance_eval()
+      correctness = util.evaluate_proposed_bounding_boxes(
+          iou_threshold, self.proposed_boxes, self.gold_boxes, output_path)
     else:
-      accuracy = self.single_instance_eval(iou_threshold, output_path)
-    return accuracy, avg_runtime_secs, avg_memory_mbs
+      correctness = util.evaluate_proposed_bounding_boxes(
+          iou_threshold,
+          [[boxes[0]] for boxes in self.proposed_boxes],
+          [[boxes[0]] for boxes in self.gold_boxes],
+          output_path
+      )
+    return correctness, avg_runtime_secs, avg_memory_mbs
 
 
 if __name__ == "__main__":
