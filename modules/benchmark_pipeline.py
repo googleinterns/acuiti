@@ -1,7 +1,7 @@
 """BenchmarkPipeline class and tfRecord utility functions."""
 
 import argparse
-from typing import List, Tuple
+from typing import Tuple
 
 import cv2
 import matplotlib.pyplot
@@ -9,7 +9,6 @@ from modules import defaults
 from modules import icon_finder_random
 from modules import icon_finder_shape_context
 from modules import util
-from modules.bounding_box import BoundingBox
 from modules.correctness_metrics import CorrectnessMetrics
 import numpy as np
 
@@ -26,29 +25,59 @@ class BenchmarkPipeline:
     benchmark = BenchmarkPipeline("benchmark.tfrecord")
     benchmark.evaluate()
   """
-
   def __init__(self, tfrecord_path: str = defaults.TFRECORD_PATH):
     parsed_image_dataset = util.parse_image_dataset(tfrecord_path)
     self.gold_boxes = util.parse_gold_boxes(parsed_image_dataset)
     self.image_list, self.icon_list = util.parse_images_and_icons(
         parsed_image_dataset)
     self.proposed_boxes = []
+    self.image_clusters = []
 
-  def visualize_bounding_boxes(self, output_name: str,
-                               boxes: List[BoundingBox]):
+  def visualize_bounding_boxes(self,
+                               output_name: str,
+                               multi_instance_icon: bool = False,
+                               draw_contours: bool = False):
     """Visualizes bounding box of icon in its source image.
+
+    Draws the proposed bounding boxes in red, and the gold bounding
+    boxes in green. Also optionally draws the contours detected
+    grouped by different colors.
 
     Arguments:
         output_name: prefix of filename images should be saved as
-        boxes: list of BoundingBoxes
+        multi_instance_icon: whether to visualize all bounding boxes
+          or just the first
+        draw_contours: whether to draw the contour clusters in the image
     """
     for i, image_bgr in enumerate(self.image_list):
-      box_list = boxes[i]
+      gold_box_list = self.gold_boxes[i]
+      proposed_box_list = self.proposed_boxes[i]
       image_bgr_copy = image_bgr.copy()
-      for box in box_list:
+
+      # consider only the first returned icon for single-instance case
+      if not multi_instance_icon:
+        gold_box_list = gold_box_list[0:1]
+        proposed_box_list = proposed_box_list[0:1]
+
+      # draw the gold boxes in green
+      for box in gold_box_list:
         # top left and bottom right corner of rectangle
         cv2.rectangle(image_bgr_copy, (box.min_x, box.min_y),
                       (box.max_x, box.max_y), (0, 255, 0), 3)
+
+      # draw the proposed boxes in red
+      for box in proposed_box_list:
+        # top left and bottom right corner of rectangle
+        cv2.rectangle(image_bgr_copy, (box.min_x, box.min_y),
+                      (box.max_x, box.max_y), (0, 0, 255), 3)
+
+      if draw_contours:
+        # draw each contour cluster in the image with a distinct color
+        for j in range(0, len(self.image_clusters[i])):
+          # each contour cluster will alternate between these colors
+          colors = [(128, 0, 128), (255, 192, 203), (255, 0, 255)]
+          color = colors[j % len(colors)]
+          cv2.drawContours(image_bgr_copy, self.image_clusters[i], j, color, 1)
       image_rgb = cv2.cvtColor(image_bgr_copy, cv2.COLOR_BGR2RGB)
 
       if image_rgb is None:
@@ -76,8 +105,10 @@ class BenchmarkPipeline:
     for image, icon in zip(self.image_list, self.icon_list):
       timer = util.LatencyTimer()  # pytype: disable=module-attr
       timer.start()
-      self.proposed_boxes.append(icon_finder.find_icons(image, icon))
+      bboxes, image_contour_clusters = icon_finder.find_icons(image, icon)
       timer.stop()
+      self.proposed_boxes.append(bboxes)
+      self.image_clusters.append(image_contour_clusters)
       times.append(timer.calculate_info(output_path))
     print("Average time per image: %f" % np.mean(times))
     return np.mean(times)
@@ -170,21 +201,16 @@ class BenchmarkPipeline:
     avg_runtime_secs, avg_memory_mbs = self.find_icons(find_icon_option,
                                                        output_path)
     if visualize:
-      self.visualize_bounding_boxes("images/gold/gold-visualized",
-                                    self.gold_boxes)
-      self.visualize_bounding_boxes(
-          "images/" + find_icon_option + "/" + find_icon_option +
-          "-visualized", self.proposed_boxes)
+      self.visualize_bounding_boxes("images/" + find_icon_option + "/" +
+                                    find_icon_option + "-visualized",
+                                    multi_instance_icon=multi_instance_icon)
     if multi_instance_icon:
       correctness = util.evaluate_proposed_bounding_boxes(
           iou_threshold, self.proposed_boxes, self.gold_boxes, output_path)
     else:
       correctness = util.evaluate_proposed_bounding_boxes(
-          iou_threshold,
-          [[boxes[0]] for boxes in self.proposed_boxes],
-          [[boxes[0]] for boxes in self.gold_boxes],
-          output_path
-      )
+          iou_threshold, [[boxes[0]] for boxes in self.proposed_boxes],
+          [[boxes[0]] for boxes in self.gold_boxes], output_path)
     return correctness, avg_runtime_secs, avg_memory_mbs
 
 

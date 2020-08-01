@@ -17,7 +17,7 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
                dbscan_eps: float = 10,
                dbscan_min_neighbors: int = 5,
                sc_max_num_points: int = 90,
-               sc_distance_threshold: float = 0.5,
+               sc_distance_threshold: float = 0.3,
                nms_iou_threshold: float = 0.9):
     """Initializes the hyperparameters for the shape context icon finder.
 
@@ -128,9 +128,11 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
 
     image_contours_clusters_keypoints = []
     image_contours_clusters_nonkeypoints = []
+    # go through each cluster, identify which are keypoints and nonkeypoints
     for cluster in image_contours_clusters:
       keypoint_cluster = []
       nonkeypoint_cluster = []
+      # separate the keypoints from non keypoints into different clusters
       for point in cluster:
         if tuple(point) in image_contours_keypoints:
           keypoint_cluster.append(point)
@@ -153,4 +155,4 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
     bboxes = algorithms.suppress_overlapping_bounding_boxes(
         bboxes, rects, 1 / sorted_distances, 1 / self.sc_distance_threshold,
         self.nms_iou_threshold)
-    return bboxes, image_contours_clusters_keypoints
+    return bboxes, image_contours_clusters
