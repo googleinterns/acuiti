@@ -34,11 +34,11 @@ def test_iou(box_1, box_2, expected):
   assert box_1.calculate_iou(box_2) == expected
 
 
-box_list_1 = [[_BOX_A, _BOX_B], [_BOX_C, _BOX_D]]
-box_list_2 = [[_BOX_B, _BOX_A], [_BOX_D, _BOX_C]]
-box_list_3 = [[_BOX_A], [_BOX_C]]
-box_list_4 = [[_BOX_E], [_BOX_F]]
-box_list_5 = [[_BOX_G], [_BOX_G]]
+_BOX_LIST_1 = [[_BOX_A, _BOX_B], [_BOX_C, _BOX_D]]
+_BOX_LIST_2 = [[_BOX_B, _BOX_A], [_BOX_D, _BOX_C]]
+_BOX_LIST_3 = [[_BOX_A], [_BOX_C]]
+_BOX_LIST_4 = [[_BOX_E], [_BOX_F]]
+_BOX_LIST_5 = [[_BOX_G], [_BOX_G]]
 # The following two test suites test the evaluation functionality for
 # these cases, in order:
 # -- proposed boxes that are all correct but not listed in the same order
@@ -56,14 +56,14 @@ box_list_5 = [[_BOX_G], [_BOX_G]]
 
 # test the final accuracy, precision, and recall values
 correctness_evaluation_tests = [
-    (1, box_list_1, box_list_2, CorrectnessMetrics(1, 1, 1)),
-    (1, box_list_1, box_list_3, CorrectnessMetrics(0.5, 0.5, 1)),
-    (1, box_list_3, box_list_1, CorrectnessMetrics(0.5, 1, 0.5)),
+    (1, _BOX_LIST_1, _BOX_LIST_2, CorrectnessMetrics(1, 1, 1)),
+    (1, _BOX_LIST_1, _BOX_LIST_3, CorrectnessMetrics(0.5, 0.5, 1)),
+    (1, _BOX_LIST_3, _BOX_LIST_1, CorrectnessMetrics(0.5, 1, 0.5)),
     (1, [[]], [[]], CorrectnessMetrics(1, 1, 1)),
-    (1, [[], []], box_list_3, CorrectnessMetrics(0, 1, 0)),
-    (1, box_list_3, [[], []], CorrectnessMetrics(0, 0, 1)),
-    (2 / 6, box_list_4, box_list_5, CorrectnessMetrics(1, 1, 1)),
-    (1, box_list_3, box_list_5, CorrectnessMetrics(0, 0, 0))
+    (1, [[], []], _BOX_LIST_3, CorrectnessMetrics(0, 1, 0)),
+    (1, _BOX_LIST_3, [[], []], CorrectnessMetrics(0, 0, 1)),
+    (2 / 6, _BOX_LIST_4, _BOX_LIST_5, CorrectnessMetrics(1, 1, 1)),
+    (1, _BOX_LIST_3, _BOX_LIST_5, CorrectnessMetrics(0, 0, 0))
 ]
 
 # explicitly test the intermediate confusion matrix values
@@ -71,14 +71,14 @@ correctness_evaluation_tests = [
 #   boxes but nonzero proposed boxes, and the final accuracy/precison/recall
 #   values were correct, but not the intermediate confusion matrix values
 #   ((false positive, false negative), (true positive, true negative))
-confusion_matrix_tests = [(1, box_list_1, box_list_2, ((0, 0), (4, 0))),
-                          (1, box_list_1, box_list_3, ((2, 0), (2, 0))),
-                          (1, box_list_3, box_list_1, ((0, 2), (2, 0))),
+confusion_matrix_tests = [(1, _BOX_LIST_1, _BOX_LIST_2, ((0, 0), (4, 0))),
+                          (1, _BOX_LIST_1, _BOX_LIST_3, ((2, 0), (2, 0))),
+                          (1, _BOX_LIST_3, _BOX_LIST_1, ((0, 2), (2, 0))),
                           (1, [[]], [[]], ((0, 0), (0, 1))),
-                          (1, [[], []], box_list_3, ((0, 2), (0, 0))),
-                          (1, box_list_3, [[], []], ((2, 0), (0, 0))),
-                          (2 / 6, box_list_4, box_list_5, ((0, 0), (2, 0))),
-                          (1, box_list_3, box_list_5, ((2, 2), (0, 0)))]
+                          (1, [[], []], _BOX_LIST_3, ((0, 2), (0, 0))),
+                          (1, _BOX_LIST_3, [[], []], ((2, 0), (0, 0))),
+                          (2 / 6, _BOX_LIST_4, _BOX_LIST_5, ((0, 0), (2, 0))),
+                          (1, _BOX_LIST_3, _BOX_LIST_5, ((2, 2), (0, 0)))]
 
 
 # "expected": CorrectnessMetrics dataclass object (accuracy, precision, recall)
@@ -128,8 +128,8 @@ icon_rect_2 = [0, 0, 7, 7]
 icon_rect_3 = [0, 0, 4, 6]
 icon_rect_4 = [0, 0, 10, 10]
 icon_rect_5 = [0, 0, 9, 10]
-icon_bbox_list_1 = [icon_bbox_1, icon_bbox_2, icon_bbox_3]
-icon_bbox_list_2 = [icon_bbox_4, icon_bbox_5]
+icon_box_list_1 = [icon_bbox_1, icon_bbox_2, icon_bbox_3]
+icon_box_list_2 = [icon_bbox_4, icon_bbox_5]
 icon_rect_list_1 = [icon_rect_1, icon_rect_2, icon_rect_3]
 icon_rect_list_2 = [icon_rect_4, icon_rect_5]
 confidence_1 = [5, 6, 7]
@@ -138,10 +138,10 @@ confidence_2 = [5, 4]
 # contour list 1: tests varying confidence thresholds given IOUs < nms_threshold
 # contour list 2: tests varying confidence thresholds given IOU > nms_threshold
 nms_tests = [
-    (icon_bbox_list_1, icon_rect_list_1, confidence_1, 2, 0.9, 3),
-    (icon_bbox_list_1, icon_rect_list_1, confidence_1, 6, 0.9, 1),
-    (icon_bbox_list_2, icon_rect_list_2, confidence_2, 3, 0.89, 1),
-    (icon_bbox_list_2, icon_rect_list_2, confidence_2, 6, 0.9, 0),
+    (icon_box_list_1, icon_rect_list_1, confidence_1, 2, 0.9, 3),
+    (icon_box_list_1, icon_rect_list_1, confidence_1, 6, 0.9, 1),
+    (icon_box_list_2, icon_rect_list_2, confidence_2, 3, 0.89, 1),
+    (icon_box_list_2, icon_rect_list_2, confidence_2, 6, 0.9, 0),
 ]
 
 
