@@ -101,7 +101,7 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
     return np.array(nearby_contours), np.array(nearby_distances)
 
   def find_icons(self, image: np.ndarray,
-                 icon: np.ndarray) -> List[BoundingBox]:
+                 icon: np.ndarray) -> Tuple[List[BoundingBox], List[np.ndarray]]:
     """Find instances of icon in a given image via shape context descriptor.
 
     Arguments:
@@ -109,7 +109,9 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
         icon: Numpy array representing icon
 
     Returns:
-        List[BoundingBox] -- Bounding Box for each instance of icon in image.
+        Tuple(list of Bounding Box for each instance of icon in image,
+        list of clusters of contours detected in the image to visually evaluate
+        how well contour clustering worked)
     """
     # cluster image contours using all points
     image_contours = np.vstack(algorithms.detect_contours(image,
@@ -143,8 +145,8 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
 
     # get nearby contours by using keypoint information
     nearby_contours, nearby_distances = self._get_nearby_contours_and_distances(
-        icon_contour_keypoints, image_contours_clusters_keypoints,
-        image_contours_clusters_nonkeypoints)
+        icon_contour_keypoints, np.array(image_contours_clusters_keypoints),
+        np.array(image_contours_clusters_nonkeypoints))
     sorted_indices = nearby_distances.argsort()
     sorted_contours = nearby_contours[sorted_indices]
     sorted_distances = nearby_distances[sorted_indices]
