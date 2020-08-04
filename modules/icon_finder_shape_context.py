@@ -44,18 +44,18 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
 
   def _get_nearby_contours_and_distances(
       self, icon_contour: np.ndarray,
-      image_contours_clusters_keypoints: np.ndarray,
-      image_contours_clusters_nonkeypoints: np.ndarray
+      all_image_contours_clusters_keypoints: np.ndarray,
+      all_image_contours_clusters_nonkeypoints: np.ndarray
   ) -> Tuple[np.ndarray, np.ndarray]:
     """Helper function to find the image contours closest to the icon.
 
     Arguments:
         icon_contour: List of points [x, y] representing the icon's contour.
         More precisely, the type is: List[List[int]]
-        image_contours_clusters_keypoints: List of lists of points
+        all_image_contours_clusters_keypoints: List of lists of points
          [x, y] representing each of the image's contour clusters' keypoints.
          List[List[List[int]]]
-        image_contours_clusters_nonkeypoints: List of lists of points
+        all_image_contours_clusters_nonkeypoints: List of lists of points
          [x, y] representing each of the image's contour clusters' nonkeypoints.
          List[List[List[int]]]
 
@@ -74,17 +74,17 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
     else:
       downsampled_icon_contour = icon_contour
 
-    for image_contour_cluster_keypoints in image_contours_clusters_keypoints:
+    for single_image_cluster_keypoints in all_image_contours_clusters_keypoints:
       # expand the 1st dimension so that the shape is (n, 1, 2),
       # which is what shape context algorithm wants
       icon_contour_3d = np.expand_dims(downsampled_icon_contour, axis=1)
-      if image_contour_cluster_keypoints.shape[0] > self.sc_max_num_points:
-        downsampled_image_contour = image_contour_cluster_keypoints[
-            np.random.choice(image_contour_cluster_keypoints.shape[0],
+      if single_image_cluster_keypoints.shape[0] > self.sc_max_num_points:
+        downsampled_image_contour = single_image_cluster_keypoints[
+            np.random.choice(single_image_cluster_keypoints.shape[0],
                              self.sc_max_num_points,
                              replace=False), :]
       else:
-        downsampled_image_contour = image_contour_cluster_keypoints
+        downsampled_image_contour = single_image_cluster_keypoints
       # expand the 1st dimension so that the shape is (n, 1, 2),
       # which is what shape context algorithm wants
       image_contour_3d = np.expand_dims(downsampled_image_contour, axis=1)
@@ -92,7 +92,7 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
         distance = algorithms.shape_context_distance(icon_contour_3d,
                                                      image_contour_3d)
         if distance < self.sc_distance_threshold:
-          nearby_contours.append(image_contour_cluster_keypoints)
+          nearby_contours.append(single_image_cluster_keypoints)
           nearby_distances.append(distance)
       except cv2.error as e:
         print(e)
@@ -100,8 +100,9 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
               (str(icon_contour_3d.shape), str(image_contour_3d.shape)))
     return np.array(nearby_contours), np.array(nearby_distances)
 
-  def find_icons(self, image: np.ndarray,
-                 icon: np.ndarray) -> Tuple[List[BoundingBox], List[np.ndarray]]:
+  def find_icons(
+      self, image: np.ndarray,
+      icon: np.ndarray) -> Tuple[List[BoundingBox], List[np.ndarray]]:
     """Find instances of icon in a given image via shape context descriptor.
 
     Arguments:
@@ -141,7 +142,8 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
         else:
           nonkeypoint_cluster.append(point)
       image_contours_clusters_keypoints.append(np.array(keypoint_cluster))
-      image_contours_clusters_nonkeypoints.append(np.array(nonkeypoint_cluster))
+      image_contours_clusters_nonkeypoints.append(
+          np.array(nonkeypoint_cluster))
 
     # get nearby contours by using keypoint information
     nearby_contours, nearby_distances = self._get_nearby_contours_and_distances(
