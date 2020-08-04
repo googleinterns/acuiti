@@ -16,8 +16,8 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
   def __init__(self,
                dbscan_eps: float = 10,
                dbscan_min_neighbors: int = 5,
-               sc_max_num_points: int = 90,
-               sc_distance_threshold: float = 0.3,
+               sc_max_num_points: int = 120,
+               sc_distance_threshold: float = 3.0,
                nms_iou_threshold: float = 0.9):
     """Initializes the hyperparameters for the shape context icon finder.
 
@@ -69,6 +69,7 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
     nearby_distances = []
 
     if icon_contour.shape[0] > self.sc_max_num_points:
+      np.random.seed(0)  # fix the random seed for consistent outputs
       downsampled_icon_contour = icon_contour[np.random.choice(
           icon_contour.shape[0], self.sc_max_num_points, replace=False), :]
     else:
@@ -79,6 +80,7 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
       # which is what shape context algorithm wants
       icon_contour_3d = np.expand_dims(downsampled_icon_contour, axis=1)
       if image_contour_cluster_keypoints.shape[0] > self.sc_max_num_points:
+        np.random.seed(1)  # fix with a different random seed for consistent outputs
         downsampled_image_contour = image_contour_cluster_keypoints[
             np.random.choice(image_contour_cluster_keypoints.shape[0],
                              self.sc_max_num_points,
