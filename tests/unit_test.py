@@ -1,6 +1,5 @@
 from modules import algorithms
 from modules import util
-import modules.benchmark_pipeline
 from modules.bounding_box import BoundingBox
 from modules.correctness_metrics import CorrectnessMetrics
 import numpy as np
@@ -97,6 +96,8 @@ def test_get_confusion_matrix(iou_threshold, proposed_boxes, gold_boxes,
                               expected):
   assert util.get_confusion_matrix(iou_threshold, proposed_boxes,
                                    gold_boxes) == expected
+
+
 icon_contour_1 = np.array([[0, 0], [0, 4], [4, 0], [4, 4]])
 icon_contour_2 = np.array([[0, 0], [0, 7], [7, 0], [7, 7]])
 icon_contour_3 = np.array([[0, 0], [0, 6], [4, 0], [4, 6]])
@@ -154,13 +155,3 @@ def test_get_nms_bounding_boxes(bboxes, rects, confidences,
       algorithms.suppress_overlapping_bounding_boxes(
           bboxes, rects, confidences, confidence_threshold,
           nms_threshold)) == expected
-
-
-def test_benchmark():
-  find_icon_benchmark = modules.benchmark_pipeline.BenchmarkPipeline()
-  correctness, avg_time_secs, avg_memory_mibs = find_icon_benchmark.evaluate()
-  assert avg_memory_mibs <= 1000
-  assert avg_time_secs <= 60
-  assert correctness.accuracy >= 0
-  assert correctness.precision >= 0
-  assert correctness.recall >= 0
