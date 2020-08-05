@@ -14,6 +14,7 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
   """This class generates bounding boxes via Shape Context Descriptors."""
 
   def __init__(self,
+               desired_confidence: float = 0.5,
                dbscan_eps: float = 10,
                dbscan_min_neighbors: int = 5,
                sc_max_num_points: int = 120,
@@ -22,6 +23,8 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
     """Initializes the hyperparameters for the shape context icon finder.
 
     Arguments:
+        desired_confidence: The desired confidence for the bounding boxes that
+         are returned, from 0 to 1. (default: {0.5})
         dbscan_eps: The maximum distance a point can be away to be considered
          within neighborhood of another point by DBSCAN. (default: {10})
         dbscan_min_neighbors: The number of points needed within a neighborhood
@@ -36,6 +39,7 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
          boxes of image patches before the lower confidence one is discarded by
          non-max-suppression algorithm (default: {0.9})
     """
+    self.desired_confidence = desired_confidence
     self.dbscan_eps = dbscan_eps
     self.dbscan_min_neighbors = dbscan_min_neighbors
     self.sc_max_num_points = sc_max_num_points
@@ -75,12 +79,16 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
     else:
       downsampled_icon_contour = icon_contour
 
+    # shape-context-algorithm needs image and icon to have same size pointsets
+    # downsample and upsample as necessary with a pre-defined random seed
     for image_contour_cluster_keypoints in image_contours_clusters_keypoints:
       # expand the 1st dimension so that the shape is (n, 1, 2),
       # which is what shape context algorithm wants
       icon_contour_3d = np.expand_dims(downsampled_icon_contour, axis=1)
+
       if image_contour_cluster_keypoints.shape[0] > self.sc_max_num_points:
-        np.random.seed(1)  # fix with a different random seed for consistent outputs
+        np.random.seed(
+            1)  # fix with a different random seed for consistent outputs
         downsampled_image_contour = image_contour_cluster_keypoints[
             np.random.choice(image_contour_cluster_keypoints.shape[0],
                              self.sc_max_num_points,
@@ -102,8 +110,9 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
               (str(icon_contour_3d.shape), str(image_contour_3d.shape)))
     return np.array(nearby_contours), np.array(nearby_distances)
 
-  def find_icons(self, image: np.ndarray,
-                 icon: np.ndarray) -> Tuple[List[BoundingBox], List[np.ndarray]]:
+  def find_icons(
+      self, image: np.ndarray,
+      icon: np.ndarray) -> Tuple[List[BoundingBox], List[np.ndarray]]:
     """Find instances of icon in a given image via shape context descriptor.
 
     Arguments:
@@ -143,7 +152,8 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
         else:
           nonkeypoint_cluster.append(point)
       image_contours_clusters_keypoints.append(np.array(keypoint_cluster))
-      image_contours_clusters_nonkeypoints.append(np.array(nonkeypoint_cluster))
+      image_contours_clusters_nonkeypoints.append(
+          np.array(nonkeypoint_cluster))
 
     # get nearby contours by using keypoint information
     nearby_contours, nearby_distances = self._get_nearby_contours_and_distances(
@@ -153,9 +163,13 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
     sorted_contours = nearby_contours[sorted_indices]
     sorted_distances = nearby_distances[sorted_indices]
     print("Minimum distance achieved: %f" % sorted_distances[0])
-    # invert distances since we want confidence scores
+    start_index, end_index = algorithms.filter_unlikely_bounding_boxes(
+        sorted_distances, desired_confidence=self.desired_confidence)
+    sorted_contours = sorted_contours[start_index:end_index]
+    sorted_distances = sorted_distances[start_index:end_index]
     bboxes, rects = algorithms.get_bounding_boxes_from_contours(
         sorted_contours)
+    # invert distances since we want confidence scores
     bboxes = algorithms.suppress_overlapping_bounding_boxes(
         bboxes, rects, 1 / sorted_distances, 1 / self.sc_distance_threshold,
         self.nms_iou_threshold)

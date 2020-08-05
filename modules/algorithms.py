@@ -6,6 +6,11 @@ from modules.bounding_box import BoundingBox
 import numpy as np
 import sklearn.cluster
 
+# experimentally-derived constants for the precision-recall curve
+_HIGH_PRECISION_MULTIPLIER = 1.5
+_OPTIMAL_ACCURACY_MULTIPLIER = 3
+_HIGH_RECALL_MULTIPLIER = 13
+
 
 def shape_context_distance(icon_contour: np.ndarray,
                            image_contour: np.ndarray) -> float:
@@ -113,6 +118,56 @@ def get_bounding_boxes_from_contours(
     bbox = BoundingBox(x, y, x + w, y + h)
     bboxes.append(bbox)
   return bboxes, rects
+
+
+def filter_unlikely_bounding_boxes(
+    sorted_sc_distances: np.ndarray,
+    desired_confidence: float = 0.5) -> Tuple[int, int]:
+  """Filter out bounding boxes that are unlikely to occur.
+
+  Unlikeliness is quantified by a desired confidence.
+
+  Arguments:
+      sorted_sc_distances: list of shape context distances,in sorted order.
+      desired_confidence: The desired confidence for the bounding boxes that
+         are returned, from 0 to 1. (default: {0.5})
+
+  Returns:
+      Tuple[start index, end index] of the subarray of distances
+       (and corresponding bounding boxes) that should be kept.
+  """
+  start_index = 0
+  end_index = 0
+  middle_confidence_level = 0.5
+
+  # optimize for accuracy if confidence is not super high or low
+  if desired_confidence == middle_confidence_level:
+    relative_distance_multiplier = _OPTIMAL_ACCURACY_MULTIPLIER
+
+  # optimize for recall if confidence is low
+  elif desired_confidence < middle_confidence_level:
+    relative_distance_multiplier = _OPTIMAL_ACCURACY_MULTIPLIER + (
+        1 - desired_confidence) * (_HIGH_RECALL_MULTIPLIER -
+                                   _OPTIMAL_ACCURACY_MULTIPLIER)
+
+  # optimize for precision if confidence is high
+  elif desired_confidence > middle_confidence_level:
+    relative_distance_multiplier = _HIGH_PRECISION_MULTIPLIER + (
+        1 - desired_confidence) * (_OPTIMAL_ACCURACY_MULTIPLIER -
+                                   _HIGH_PRECISION_MULTIPLIER)
+
+  relative_max_dist = relative_distance_multiplier * sorted_sc_distances[
+      start_index]
+
+  curr_distance = sorted_sc_distances[end_index]
+  # we want end_index to be one more than the index of the last kept bbox
+  while curr_distance < relative_max_dist:
+    end_index += 1
+    if end_index < len(sorted_sc_distances):
+      curr_distance = sorted_sc_distances[end_index]
+    else:
+      break
+  return start_index, end_index
 
 
 def suppress_overlapping_bounding_boxes(

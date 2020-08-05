@@ -37,7 +37,7 @@ class BenchmarkPipeline:
   def visualize_bounding_boxes(self,
                                output_name: str,
                                multi_instance_icon: bool = False,
-                               draw_contours: bool = False):
+                               draw_contours: bool = True):
     """Visualizes bounding box of icon in its source image.
 
     Draws the proposed bounding boxes in red, and the gold bounding
@@ -141,7 +141,9 @@ class BenchmarkPipeline:
   def find_icons(
       self,
       find_icon_option: str = defaults.FIND_ICON_OPTION,
-      output_path: str = defaults.OUTPUT_PATH) -> Tuple[float, float]:
+      output_path: str = defaults.OUTPUT_PATH,
+      desired_confidence: float = defaults.DESIRED_CONFIDENCE
+  ) -> Tuple[float, float]:
     """Runs an icon-finding algorithm under timed and memory-tracking conditions.
 
     Arguments:
@@ -149,6 +151,8 @@ class BenchmarkPipeline:
          algorithm. (default: {defaults.FIND_ICON_OPTION})
         output_path: Filename for writing time and memory info to
          (default: {defaults.OUTPUT_PATH})
+        desired_confidence: The desired confidence for the bounding boxes that
+         are returned, from 0 to 1. (default: {0.5})
 
     Returns:
         (total time, total memory) used for find icon process
@@ -159,7 +163,7 @@ class BenchmarkPipeline:
           % defaults.FIND_ICON_OPTION)
       find_icon_option = defaults.FIND_ICON_OPTION
     try:
-      icon_finder = _ICON_FINDERS[find_icon_option]()
+      icon_finder = _ICON_FINDERS[find_icon_option](desired_confidence)
     except KeyError:
       print("Error resolving %s" % _ICON_FINDERS[find_icon_option])
 
@@ -173,7 +177,8 @@ class BenchmarkPipeline:
       iou_threshold: float = defaults.IOU_THRESHOLD,
       output_path: str = defaults.OUTPUT_PATH,
       find_icon_option: str = defaults.FIND_ICON_OPTION,
-      multi_instance_icon: bool = False
+      multi_instance_icon: bool = False,
+      desired_confidence: float = defaults.DESIRED_CONFIDENCE
   ) -> Tuple[CorrectnessMetrics, float, float]:
     """Integrated pipeline for testing calculated bounding boxes.
 
@@ -194,13 +199,16 @@ class BenchmarkPipeline:
         multi_instance_icon: flag for whether we're evaluating with
          multiple instances of an icon in an image
           (default: {False})
+        desired_confidence: The desired confidence for the bounding boxes that
+         are returned, from 0 to 1. (default: {0.5})
 
     Returns:
         Tuple(CorrectnessMetrics, avg runtime, avg memory of
          the bounding box detection process.)
     """
     avg_runtime_secs, avg_memory_mbs = self.find_icons(find_icon_option,
-                                                       output_path)
+                                                       output_path,
+                                                       desired_confidence)
     if visualize:
       self.visualize_bounding_boxes("images/" + find_icon_option + "/" +
                                     find_icon_option + "-visualized",
@@ -258,6 +266,14 @@ if __name__ == "__main__":
       default=False,
       help="whether to visualize bounding boxes on image (default: %s)" %
       False)
+  parser.add_argument(
+      "--desired_confidence",
+      dest="desired_confidence",
+      type=float,
+      default=defaults.DESIRED_CONFIDENCE,
+      help=
+      "a float from 0 to 1 representing how confident the results should be (default: %s)"
+      % defaults.DESIRED_CONFIDENCE)
   args = parser.parse_args()
   _find_icon_option = args.find_icon_option
   if _find_icon_option not in _ICON_FINDERS:
@@ -270,4 +286,5 @@ if __name__ == "__main__":
                      iou_threshold=args.threshold,
                      output_path=args.output_path,
                      find_icon_option=_find_icon_option,
-                     multi_instance_icon=args.multi_instance_icon)
+                     multi_instance_icon=args.multi_instance_icon,
+                     desired_confidence=args.desired_confidence)
