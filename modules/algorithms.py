@@ -156,6 +156,8 @@ def filter_unlikely_bounding_boxes(
         1 - desired_confidence) * (_OPTIMAL_ACCURACY_MULTIPLIER -
                                    _HIGH_PRECISION_MULTIPLIER)
 
+  # no absolute distance threshold because we assume that at least one icon
+  # is present
   relative_max_dist = relative_distance_multiplier * sorted_sc_distances[
       start_index]
 
