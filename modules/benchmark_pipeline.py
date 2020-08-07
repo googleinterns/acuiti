@@ -5,6 +5,7 @@ from typing import Tuple
 
 import cv2
 import matplotlib.pyplot
+from modules import analysis_util
 from modules import defaults
 from modules import icon_finder_random
 from modules import icon_finder_shape_context
@@ -173,8 +174,8 @@ class BenchmarkPipeline:
       iou_threshold: float = defaults.IOU_THRESHOLD,
       output_path: str = defaults.OUTPUT_PATH,
       find_icon_option: str = defaults.FIND_ICON_OPTION,
-      multi_instance_icon: bool = False
-  ) -> Tuple[CorrectnessMetrics, float, float]:
+      multi_instance_icon: bool = False,
+      analysis_mode: bool = False) -> Tuple[CorrectnessMetrics, float, float]:
     """Integrated pipeline for testing calculated bounding boxes.
 
     Compares calculated bounding boxes to ground truth,
@@ -194,6 +195,8 @@ class BenchmarkPipeline:
         multi_instance_icon: flag for whether we're evaluating with
          multiple instances of an icon in an image
           (default: {False})
+        analysis_mode: bool for whether to run extra analyses, similar
+         to debug mode.
 
     Returns:
         Tuple(CorrectnessMetrics, avg runtime, avg memory of
@@ -212,6 +215,16 @@ class BenchmarkPipeline:
       correctness = util.evaluate_proposed_bounding_boxes(
           iou_threshold, [[boxes[0]] for boxes in self.proposed_boxes],
           [[boxes[0]] for boxes in self.gold_boxes], output_path)
+    if analysis_mode:
+      analysis_util.label_cluster_size(self.image_clusters, self.image_list,
+                                       "images/labelled-contours/")
+      samples = []
+      for clusters in self.image_clusters:
+        for cluster in clusters:
+          samples.append(len(cluster))
+      title = "Number of keypoints in image clusters"
+      analysis_util.generate_histogram(np.array(samples), title, title,
+                                       "keypoints-histogram.png")
     return correctness, avg_runtime_secs, avg_memory_mbs
 
 

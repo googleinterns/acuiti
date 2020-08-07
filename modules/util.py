@@ -1,7 +1,7 @@
 """Contains utility classes and modules.
 
 Utilites include:
-- image process utility functions
+- image processing utility functions
 - evaluation utility functions
 - class that measures latency
 - class that measure memory usage
