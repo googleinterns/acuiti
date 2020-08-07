@@ -136,8 +136,6 @@ def filter_unlikely_bounding_boxes(
       Tuple[start index, end index] of the subarray of distances
        (and corresponding bounding boxes) that should be kept.
   """
-  start_index = 0
-  end_index = 0
   middle_confidence_level = 0.5
 
   # optimize for accuracy if confidence is not super high or low
@@ -156,6 +154,8 @@ def filter_unlikely_bounding_boxes(
         1 - desired_confidence) * (_OPTIMAL_ACCURACY_MULTIPLIER -
                                    _HIGH_PRECISION_MULTIPLIER)
 
+  start_index = 0
+  end_index = 0
   # no absolute distance threshold because we assume that at least one icon
   # is present
   relative_max_dist = relative_distance_multiplier * sorted_sc_distances[
