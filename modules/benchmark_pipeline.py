@@ -26,7 +26,6 @@ class BenchmarkPipeline:
     benchmark = BenchmarkPipeline("benchmark.tfrecord")
     benchmark.evaluate()
   """
-
   def __init__(self, tfrecord_path: str = defaults.TFRECORD_PATH):
     parsed_image_dataset = util.parse_image_dataset(tfrecord_path)
     self.gold_boxes = util.parse_gold_boxes(parsed_image_dataset)
@@ -58,6 +57,9 @@ class BenchmarkPipeline:
 
       # consider only the first returned icon for single-instance case
       if not multi_instance_icon:
+        assert len(gold_box_list) <= 1, (
+            "Length of gold box list is more than 1,",
+            "but multi_instance_icon is False.")
         gold_box_list = gold_box_list[0:1]
         proposed_box_list = proposed_box_list[0:1]
 

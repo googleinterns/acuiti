@@ -42,7 +42,7 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
     self.sc_distance_threshold = sc_distance_threshold
     self.nms_iou_threshold = nms_iou_threshold
 
-  def _get_nearby_contours_and_distances(
+  def _get_similar_contours(
       self, icon_contour: np.ndarray,
       image_contour_clusters_keypoints: np.ndarray,
       image_contour_clusters_nonkeypoints: np.ndarray
@@ -111,9 +111,11 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
         list of clusters of contours detected in the image to visually evaluate
         how well contour clustering worked)
     """
+    icon_contour = np.vstack(algorithms.detect_contours(icon, True)).squeeze()
     # cluster image contours using all points
     image_contours = np.vstack(algorithms.detect_contours(image,
                                                           True)).squeeze()
+
     image_contours_clusters, _ = algorithms.cluster_contours_dbscan(
         image_contours, self.dbscan_eps, self.dbscan_min_neighbors)
 
@@ -121,9 +123,7 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
     image_contours_keypoints = np.vstack(
         algorithms.detect_contours(image, True,
                                    cv2.CHAIN_APPROX_SIMPLE)).squeeze()
-    icon_contour = np.vstack(
-        algorithms.detect_contours(icon, True)).squeeze()
-    image_contours_keypoints = set(tuple(map(tuple, image_contours_keypoints)))
+    image_contours_keypoints = set(map(tuple, image_contours_keypoints))
 
     image_contours_clusters_keypoints = []
     image_contours_clusters_nonkeypoints = []
@@ -142,7 +142,7 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
           np.array(nonkeypoint_cluster))
 
     # get nearby contours by using keypoint information
-    nearby_contours, nearby_distances = self._get_nearby_contours_and_distances(
+    nearby_contours, nearby_distances = self._get_similar_contours(
         icon_contour, np.array(image_contours_clusters_keypoints),
         np.array(image_contours_clusters_nonkeypoints))
     sorted_indices = nearby_distances.argsort()
