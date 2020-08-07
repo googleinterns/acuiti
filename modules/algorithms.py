@@ -124,7 +124,7 @@ def create_pointset(keypoints: np.ndarray,
   # introduce as few nonkeypoints as possible,
   # so only try to upsample if it's less than min
   elif len(keypoints) < min_points:
-    if nonkeypoints is not None and len(nonkeypoints) > 0:
+    if nonkeypoints is not None and len(nonkeypoints) > 0:  # pylint: disable=g-explicit-length-test
       if len(keypoints) + len(nonkeypoints) <= min_points:
         selected_nonkeypoints = nonkeypoints
       else:
