@@ -93,6 +93,56 @@ def cluster_contours_dbscan(
   return contour_groups, core_samples_mask_groups
 
 
+def create_pointset(keypoints: np.ndarray,
+                    min_points: int,
+                    max_points: int,
+                    nonkeypoints: np.ndarray = None) -> np.ndarray:
+  """Downsample and upsample pointset to a certain size.
+
+  If there are enough keypoints and nonkeypoints, the resulting pointset
+  will be at least min_points large. In all cases, the resulting pointset
+  will be less than or equal to max_points in size.
+
+  Arguments:
+      keypoints: an array of [x, y] points representing keypoints
+      min_points: the minimum desired number of poitns we want in pointset
+      max_points: the upper limit of points we want in point set
+      nonkeypoints: an optional array of [x, y] points representing nonkeypoints
+      If provided, these points will be used to bring the pointset size up to
+      min_points as much as possible. (Default: None)
+
+  Returns:
+      np.ndarray: resulting pointset after possibly upsampling or downsampling.
+  """
+  pointset = []
+  # keep as many keypoints as possible,
+  # so only downsample if there's more than max
+  if len(keypoints) > max_points:
+    pointset = keypoints[
+        np.random.choice(keypoints.shape[0], max_points, replace=False), :]
+
+  # introduce as few nonkeypoints as possible,
+  # so only try to upsample if it's less than min
+  elif len(keypoints) < min_points:
+    if nonkeypoints is not None and len(nonkeypoints) > 0:
+      if len(keypoints) + len(nonkeypoints) <= min_points:
+        selected_nonkeypoints = nonkeypoints
+      else:
+        selected_nonkeypoints = nonkeypoints[np.random.choice(
+            nonkeypoints.shape[0], min_points -
+            len(keypoints), replace=False), :]
+      pointset = np.concatenate((keypoints, selected_nonkeypoints))
+    # if there are no nonkeypoints supplied,
+    # there's no choice but to just use keypoints
+    else:
+      pointset = keypoints
+
+  # the number of keypoints is already within the range [min, max]
+  else:
+    pointset = keypoints
+  return pointset
+
+
 def get_bounding_boxes_from_contours(
     contours: np.ndarray) -> Tuple[List[BoundingBox], List[List[int]]]:
   """Convert a list of contours into a list of corresponding bounding boxes.

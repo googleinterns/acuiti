@@ -17,7 +17,7 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
                dbscan_eps: float = 10,
                dbscan_min_neighbors: int = 5,
                sc_max_num_points: int = 90,
-               sc_distance_threshold: float = 0.3,
+               sc_distance_threshold: float = 1,
                nms_iou_threshold: float = 0.9):
     """Initializes the hyperparameters for the shape context icon finder.
 
@@ -69,26 +69,22 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
     nearby_contours = []
     nearby_distances = []
 
-    if icon_contour.shape[0] > self.sc_max_num_points:
-      downsampled_icon_contour = icon_contour[np.random.choice(
-          icon_contour.shape[0], self.sc_max_num_points, replace=False), :]
-    else:
-      downsampled_icon_contour = icon_contour
+    icon_pointset = algorithms.create_pointset(icon_contour,
+                                               self.sc_max_num_points,
+                                               self.sc_max_num_points)
     # expand the 1st dimension so that the shape is (n, 1, 2),
     # which is what shape context algorithm wants
-    icon_contour_3d = np.expand_dims(downsampled_icon_contour, axis=1)
+    icon_contour_3d = np.expand_dims(icon_pointset, axis=1)
 
-    for cluster_keypoints in image_contour_clusters_keypoints:
-      if cluster_keypoints.shape[0] > self.sc_max_num_points:
-        downsampled_image_contour = cluster_keypoints[
-            np.random.choice(cluster_keypoints.shape[0],
-                             self.sc_max_num_points,
-                             replace=False), :]
-      else:
-        downsampled_image_contour = cluster_keypoints
+    for cluster_keypoints, cluster_nonkeypoints in zip(
+        image_contour_clusters_keypoints, image_contour_clusters_nonkeypoints):
+      cluster_pointset = algorithms.create_pointset(cluster_keypoints,
+                                                    self.sc_max_num_points,
+                                                    self.sc_max_num_points,
+                                                    cluster_nonkeypoints)
       # expand the 1st dimension so that the shape is (n, 1, 2),
       # which is what shape context algorithm wants
-      image_contour_3d = np.expand_dims(downsampled_image_contour, axis=1)
+      image_contour_3d = np.expand_dims(cluster_pointset, axis=1)
       try:
         distance = algorithms.shape_context_distance(icon_contour_3d,
                                                      image_contour_3d)
@@ -125,9 +121,8 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
     image_contours_keypoints = np.vstack(
         algorithms.detect_contours(image, True,
                                    cv2.CHAIN_APPROX_SIMPLE)).squeeze()
-    icon_contour_keypoints = np.vstack(
-        algorithms.detect_contours(icon, True,
-                                   cv2.CHAIN_APPROX_SIMPLE)).squeeze()
+    icon_contour = np.vstack(
+        algorithms.detect_contours(icon, True)).squeeze()
     image_contours_keypoints = set(tuple(map(tuple, image_contours_keypoints)))
 
     image_contours_clusters_keypoints = []
@@ -148,7 +143,7 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
 
     # get nearby contours by using keypoint information
     nearby_contours, nearby_distances = self._get_nearby_contours_and_distances(
-        icon_contour_keypoints, np.array(image_contours_clusters_keypoints),
+        icon_contour, np.array(image_contours_clusters_keypoints),
         np.array(image_contours_clusters_nonkeypoints))
     sorted_indices = nearby_distances.argsort()
     sorted_contours = nearby_contours[sorted_indices]
@@ -160,4 +155,4 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
     bboxes = algorithms.suppress_overlapping_bounding_boxes(
         bboxes, rects, 1 / sorted_distances, 1 / self.sc_distance_threshold,
         self.nms_iou_threshold)
-    return bboxes, image_contours_clusters
+    return bboxes, image_contours_clusters_keypoints
