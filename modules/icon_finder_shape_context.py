@@ -46,22 +46,23 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
     self.sc_distance_threshold = sc_distance_threshold
     self.nms_iou_threshold = nms_iou_threshold
 
-  def _get_nearby_contours_and_distances(
+  def _get_similar_contours(
       self, icon_contour: np.ndarray,
-      image_contours_clusters_keypoints: np.ndarray,
-      image_contours_clusters_nonkeypoints: np.ndarray
+      image_contour_clusters_keypoints: np.ndarray,
+      image_contour_clusters_nonkeypoints: np.ndarray
   ) -> Tuple[np.ndarray, np.ndarray]:
     """Helper function to find the image contours closest to the icon.
 
     Arguments:
         icon_contour: List of points [x, y] representing the icon's contour.
         More precisely, the type is: List[List[int]]
-        image_contours_clusters_keypoints: List of lists of points
+        image_contour_clusters_keypoints: List of lists of points
          [x, y] representing each of the image's contour clusters' keypoints.
          List[List[List[int]]]
-        image_contours_clusters_nonkeypoints: List of lists of points
+        image_contour_clusters_nonkeypoints: List of lists of points
          [x, y] representing each of the image's contour clusters' nonkeypoints.
-         List[List[List[int]]]
+         List[List[List[int]]] TODO: use nonkeypoints for upsampling as needed,
+         when keypoints are too few for shape context alg to be meaningful.
 
     Returns:
         Tuple: (List of contours that are below the distance threshold
@@ -78,23 +79,18 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
           icon_contour.shape[0], self.sc_max_num_points, replace=False), :]
     else:
       downsampled_icon_contour = icon_contour
+    # expand the 1st dimension so that the shape is (n, 1, 2),
+    # which is what shape context algorithm wants
+    icon_contour_3d = np.expand_dims(downsampled_icon_contour, axis=1)
 
-    # shape-context-algorithm needs image and icon to have same size pointsets
-    # downsample and upsample as necessary with a pre-defined random seed
-    for image_contour_cluster_keypoints in image_contours_clusters_keypoints:
-      # expand the 1st dimension so that the shape is (n, 1, 2),
-      # which is what shape context algorithm wants
-      icon_contour_3d = np.expand_dims(downsampled_icon_contour, axis=1)
-
-      if image_contour_cluster_keypoints.shape[0] > self.sc_max_num_points:
-        np.random.seed(
-            1)  # fix with a different random seed for consistent outputs
-        downsampled_image_contour = image_contour_cluster_keypoints[
-            np.random.choice(image_contour_cluster_keypoints.shape[0],
-                             self.sc_max_num_points,
-                             replace=False), :]
+    for cluster_keypoints in image_contour_clusters_keypoints:
+      if cluster_keypoints.shape[0] > self.sc_max_num_points:
+        np.random.seed(1)  # fix the random seed for consistent outputs
+        downsampled_image_contour = cluster_keypoints[np.random.choice(
+            cluster_keypoints.shape[0], self.sc_max_num_points, replace=False
+        ), :]
       else:
-        downsampled_image_contour = image_contour_cluster_keypoints
+        downsampled_image_contour = cluster_keypoints
       # expand the 1st dimension so that the shape is (n, 1, 2),
       # which is what shape context algorithm wants
       image_contour_3d = np.expand_dims(downsampled_image_contour, axis=1)
@@ -102,7 +98,7 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
         distance = algorithms.shape_context_distance(icon_contour_3d,
                                                      image_contour_3d)
         if distance < self.sc_distance_threshold:
-          nearby_contours.append(image_contour_cluster_keypoints)
+          nearby_contours.append(cluster_keypoints)
           nearby_distances.append(distance)
       except cv2.error as e:
         print(e)
@@ -137,7 +133,7 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
     icon_contour_keypoints = np.vstack(
         algorithms.detect_contours(icon, True,
                                    cv2.CHAIN_APPROX_SIMPLE)).squeeze()
-    image_contours_keypoints = set(tuple(map(tuple, image_contours_keypoints)))
+    image_contours_keypoints = set(map(tuple, image_contours_keypoints))
 
     image_contours_clusters_keypoints = []
     image_contours_clusters_nonkeypoints = []
@@ -156,7 +152,7 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
           np.array(nonkeypoint_cluster))
 
     # get nearby contours by using keypoint information
-    nearby_contours, nearby_distances = self._get_nearby_contours_and_distances(
+    nearby_contours, nearby_distances = self._get_similar_contours(
         icon_contour_keypoints, np.array(image_contours_clusters_keypoints),
         np.array(image_contours_clusters_nonkeypoints))
     sorted_indices = nearby_distances.argsort()

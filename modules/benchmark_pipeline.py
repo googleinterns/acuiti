@@ -57,6 +57,9 @@ class BenchmarkPipeline:
 
       # consider only the first returned icon for single-instance case
       if not multi_instance_icon:
+        assert len(gold_box_list) <= 1, (
+            "Length of gold box list is more than 1,",
+            "but multi_instance_icon is False.")
         gold_box_list = gold_box_list[0:1]
         proposed_box_list = proposed_box_list[0:1]
 
@@ -74,9 +77,9 @@ class BenchmarkPipeline:
 
       if draw_contours:
         # draw each contour cluster in the image with a distinct color
+        # each contour cluster will alternate between these colors
+        colors = [(128, 0, 128), (255, 192, 203), (255, 0, 255)]
         for j in range(0, len(self.image_clusters[i])):
-          # each contour cluster will alternate between these colors
-          colors = [(128, 0, 128), (255, 192, 203), (255, 0, 255)]
           color = colors[j % len(colors)]
           cv2.drawContours(image_bgr_copy, self.image_clusters[i], j, color, 1)
       image_rgb = cv2.cvtColor(image_bgr_copy, cv2.COLOR_BGR2RGB)
