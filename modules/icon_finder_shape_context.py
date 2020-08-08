@@ -43,22 +43,24 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
     self.nms_iou_threshold = nms_iou_threshold
 
   def _get_similar_contours(
-      self, icon_contour: np.ndarray,
+      self, icon_contour_keypoints: np.ndarray,
+      icon_contour_nonkeypoints: np.ndarray,
       image_contour_clusters_keypoints: np.ndarray,
       image_contour_clusters_nonkeypoints: np.ndarray
   ) -> Tuple[np.ndarray, np.ndarray]:
     """Helper function to find the image contours closest to the icon.
 
     Arguments:
-        icon_contour: List of points [x, y] representing the icon's contour.
-        More precisely, the type is: List[List[int]]
+        icon_contour_keypoints: List of points [x, y]
+        representing the icon's contour's keypoints. Type: List[List[int]]
+        icon_contour_nonkeypoints: List of points [x, y]
+        representing the icon's contour's nonkeypoints. Type: List[List[int]]
         image_contour_clusters_keypoints: List of lists of points
          [x, y] representing each of the image's contour clusters' keypoints.
          List[List[List[int]]]
         image_contour_clusters_nonkeypoints: List of lists of points
          [x, y] representing each of the image's contour clusters' nonkeypoints.
-         List[List[List[int]]] TODO: use nonkeypoints for upsampling as needed,
-         when keypoints are too few for shape context alg to be meaningful.
+         List[List[List[int]]]
 
     Returns:
         Tuple: (List of contours that are below the distance threshold
@@ -69,9 +71,10 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
     nearby_contours = []
     nearby_distances = []
 
-    icon_pointset = algorithms.create_pointset(icon_contour,
+    icon_pointset = algorithms.create_pointset(icon_contour_keypoints,
                                                self.sc_max_num_points,
-                                               self.sc_max_num_points)
+                                               self.sc_max_num_points,
+                                               icon_contour_nonkeypoints)
     # expand the 1st dimension so that the shape is (n, 1, 2),
     # which is what shape context algorithm wants
     icon_contour_3d = np.expand_dims(icon_pointset, axis=1)
@@ -82,6 +85,7 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
                                                     self.sc_max_num_points,
                                                     self.sc_max_num_points,
                                                     cluster_nonkeypoints)
+
       # expand the 1st dimension so that the shape is (n, 1, 2),
       # which is what shape context algorithm wants
       image_contour_3d = np.expand_dims(cluster_pointset, axis=1)
@@ -111,7 +115,18 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
         list of clusters of contours detected in the image to visually evaluate
         how well contour clustering worked)
     """
-    icon_contour = np.vstack(algorithms.detect_contours(icon, True)).squeeze()
+    # get icon keypoints and nonkeypoints (using all points will hurt accuracy)
+    icon_contour_keypoints = np.vstack(
+        algorithms.detect_contours(icon, True,
+                                   cv2.CHAIN_APPROX_SIMPLE)).squeeze()
+    icon_contour_all = np.vstack(algorithms.detect_contours(icon,
+                                                            True)).squeeze()
+    icon_contour_keypoints_set = set(map(tuple, icon_contour_keypoints))
+    icon_contour_nonkeypoints = np.array([
+        point for point in icon_contour_all
+        if tuple(point) not in icon_contour_keypoints_set
+    ])
+
     # cluster image contours using all points
     image_contours = np.vstack(algorithms.detect_contours(image,
                                                           True)).squeeze()
@@ -143,7 +158,8 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
 
     # get nearby contours by using keypoint information
     nearby_contours, nearby_distances = self._get_similar_contours(
-        icon_contour, np.array(image_contours_clusters_keypoints),
+        icon_contour_keypoints, icon_contour_nonkeypoints,
+        np.array(image_contours_clusters_keypoints),
         np.array(image_contours_clusters_nonkeypoints))
     sorted_indices = nearby_distances.argsort()
     sorted_contours = nearby_contours[sorted_indices]

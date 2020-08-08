@@ -118,16 +118,18 @@ def create_pointset(keypoints: np.ndarray,
   # keep as many keypoints as possible,
   # so only downsample if there's more than max
   if len(keypoints) > max_points:
+    np.random.seed(0)  # fix randomness used
     pointset = keypoints[
         np.random.choice(keypoints.shape[0], max_points, replace=False), :]
 
   # introduce as few nonkeypoints as possible,
   # so only try to upsample if it's less than min
   elif len(keypoints) < min_points:
-    if nonkeypoints is not None and len(nonkeypoints) > 0:  # pylint: disable=g-explicit-length-test
+    if nonkeypoints is not None and len(nonkeypoints) > 0:  # pylint:disable=g-explicit-length-test
       if len(keypoints) + len(nonkeypoints) <= min_points:
         selected_nonkeypoints = nonkeypoints
       else:
+        np.random.seed(1)  # fix randomness used
         selected_nonkeypoints = nonkeypoints[np.random.choice(
             nonkeypoints.shape[0], min_points -
             len(keypoints), replace=False), :]
