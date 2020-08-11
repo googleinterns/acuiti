@@ -12,7 +12,6 @@ import numpy as np
 
 class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable=module-attr
   """This class generates bounding boxes via Shape Context Descriptors."""
-
   def __init__(self,
                desired_confidence: float = 0.5,
                dbscan_eps: float = 10,
@@ -159,8 +158,11 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
     sorted_contours = nearby_contours[sorted_indices]
     sorted_distances = nearby_distances[sorted_indices]
     print("Minimum distance achieved: %f" % sorted_distances[0])
-    end_index = algorithms.get_filtered_end_index(
+    distance_threshold = algorithms.get_distance_threshold(
         sorted_distances, desired_confidence=self.desired_confidence)
+    end_index = np.searchsorted(sorted_distances,
+                                distance_threshold,
+                                side="right")
     sorted_contours = sorted_contours[0:end_index]
     sorted_distances = sorted_distances[0:end_index]
     bboxes, rects = algorithms.get_bounding_boxes_from_contours(

@@ -122,9 +122,10 @@ def get_bounding_boxes_from_contours(
   return bboxes, rects
 
 
-def get_filtered_end_index(sorted_sc_distances: np.ndarray,
-                           desired_confidence: float = 0.5) -> int:
-  """Filter out bounding boxes that should be kept based on desired confidence.
+def get_distance_threshold(
+    sc_distances: np.ndarray,
+    desired_confidence: float = _MIDDLE_CONFIDENCE_LEVEL) -> float:
+  """Return distance threshold that can be used to filter out bounding boxes.
 
   At a desired confidence of 0, we favor recall the most, whereas at a desired
   confidence of 1, we favor precision the most. In general, the higher the
@@ -138,12 +139,13 @@ def get_filtered_end_index(sorted_sc_distances: np.ndarray,
   is present in the image.
 
   Arguments:
-      sorted_sc_distances: list of shape context distances,in sorted order.
+      sc_distances: list of shape context distances.
       desired_confidence: The desired confidence for the bounding boxes that
          are returned, from 0 to 1. (default: {0.5})
 
   Returns:
-      end index - one more than the last index of distance to be kept.
+      distance threshold - (float) threshold that can be used by clients to
+        filter out distances that are above that threshold.
   """
   precision_interval_length = _OPTIMAL_ACCURACY_MULTIPLIER - _HIGH_PRECISION_MULTIPLIER
   recall_interval_length = _HIGH_RECALL_MULTIPLIER - _OPTIMAL_ACCURACY_MULTIPLIER
@@ -171,12 +173,8 @@ def get_filtered_end_index(sorted_sc_distances: np.ndarray,
     relative_distance_multiplier = _HIGH_PRECISION_MULTIPLIER + (
         percent_precision_interval_length * precision_interval_length)
 
-  relative_max_dist = relative_distance_multiplier * sorted_sc_distances[0]
-  # we want end_index to be one more than the index of the last kept bbox
-  for i in range(len(sorted_sc_distances)):
-    if sorted_sc_distances[i] > relative_max_dist:
-      return i
-  return len(sorted_sc_distances)
+  relative_max_dist = relative_distance_multiplier * min(sc_distances)
+  return relative_max_dist
 
 
 def suppress_overlapping_bounding_boxes(
