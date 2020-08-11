@@ -122,9 +122,8 @@ def get_bounding_boxes_from_contours(
   return bboxes, rects
 
 
-def get_filtered_end_index(
-    sorted_sc_distances: np.ndarray,
-    desired_confidence: float = 0.5) -> int:
+def get_filtered_end_index(sorted_sc_distances: np.ndarray,
+                           desired_confidence: float = 0.5) -> int:
   """Filter out bounding boxes that should be kept based on desired confidence.
 
   At a desired confidence of 0, we favor recall the most, whereas at a desired
@@ -156,8 +155,7 @@ def get_filtered_end_index(
   # optimize for recall if confidence is low
   elif desired_confidence < _MIDDLE_CONFIDENCE_LEVEL:
     # map desired confidence from [0, middle confidence level) to (0, 1]
-    percent_recall_interval_length = (1 - desired_confidence -
-                                      _MIDDLE_CONFIDENCE_LEVEL) * 2
+    percent_recall_interval_length = desired_confidence / _MIDDLE_CONFIDENCE_LEVEL
     # start with the optimal accuracy multiplier and increase the multiplier
     # if desired confidence is low, up to the high-recall multiplier
     relative_distance_multiplier = _OPTIMAL_ACCURACY_MULTIPLIER + (
@@ -166,7 +164,8 @@ def get_filtered_end_index(
   # optimize for precision if confidence is high
   elif desired_confidence > _MIDDLE_CONFIDENCE_LEVEL:
     # map desired confidence from (middle confidence level, 1] to [0, 1)
-    percent_precision_interval_length = (1 - desired_confidence) * 2
+    percent_precision_interval_length = (1 - desired_confidence) / (
+        1 - _MIDDLE_CONFIDENCE_LEVEL)
     # start with the high precision multiplier and increase the multiplier
     # if desired confidence is low, up to the optimal accuracy multiplier
     relative_distance_multiplier = _HIGH_PRECISION_MULTIPLIER + (
