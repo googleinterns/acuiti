@@ -96,7 +96,8 @@ def cluster_contours_dbscan(
 def create_pointset(keypoints: np.ndarray,
                     min_points: int,
                     max_points: int,
-                    nonkeypoints: np.ndarray = None) -> np.ndarray:
+                    nonkeypoints: np.ndarray = None,
+                    random_seed: int = 0) -> np.ndarray:
   """Downsample and upsample pointset to a certain size.
 
   If there are enough keypoints and nonkeypoints, the resulting pointset
@@ -108,19 +109,22 @@ def create_pointset(keypoints: np.ndarray,
       min_points: the minimum desired number of poitns we want in pointset
       max_points: the upper limit of points we want in point set
       nonkeypoints: an optional array of [x, y] points representing nonkeypoints
-      If provided, these points will be used to bring the pointset size up to
-      min_points as much as possible. (Default: None)
+        If provided, these points will be used to bring the pointset size up to
+        min_points as much as possible. (Default: None)
+      random_seed: the random seed to use for numpy's PRG functions.
+       (Default: 0)
 
   Returns:
       np.ndarray: resulting pointset after possibly upsampling or downsampling.
   """
+  # set the random seed *locally*
+  random_state = np.random.RandomState(random_seed)
   pointset = []
   # keep as many keypoints as possible,
   # so only downsample if there's more than max
   if len(keypoints) > max_points:
-    np.random.seed(0)  # fix randomness used
     pointset = keypoints[
-        np.random.choice(keypoints.shape[0], max_points, replace=False), :]
+        random_state.choice(keypoints.shape[0], max_points, replace=False), :]
 
   # introduce as few nonkeypoints as possible,
   # so only try to upsample if it's less than min
@@ -129,8 +133,7 @@ def create_pointset(keypoints: np.ndarray,
       if len(keypoints) + len(nonkeypoints) <= min_points:
         selected_nonkeypoints = nonkeypoints
       else:
-        np.random.seed(1)  # fix randomness used
-        selected_nonkeypoints = nonkeypoints[np.random.choice(
+        selected_nonkeypoints = nonkeypoints[random_state.choice(
             nonkeypoints.shape[0], min_points -
             len(keypoints), replace=False), :]
       pointset = np.concatenate((keypoints, selected_nonkeypoints))

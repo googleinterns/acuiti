@@ -187,12 +187,12 @@ def test_get_nms_bounding_boxes(bboxes, rects, confidences,
 # -- number of keypoints is more than max
 # -- number of keypoints is exactly min
 # -- number of keypoints is less than max and more than min
-keypoints_1 = np.random.rand(3, 2)
-keypoints_2 = np.random.rand(6, 2)
-keypoints_3 = np.random.rand(5, 2)
-nonkeypoints_1 = np.random.rand(4, 2)
-nonkeypoints_2 = np.random.rand(7, 2)
-nonkeypoints_3 = np.random.rand(8, 2)
+keypoints_1 = np.full((3, 2), 1)
+keypoints_2 = np.full((6, 2), 1)
+keypoints_3 = np.full((5, 2), 1)
+nonkeypoints_1 = np.full((4, 2), 1)
+nonkeypoints_2 = np.full((7, 2), 1)
+nonkeypoints_3 = np.full((8, 2), 1)
 
 pointset_tests = [(keypoints_1, 2, 3, nonkeypoints_1, 3),
                   (keypoints_2, 7, 7, nonkeypoints_2, 7),
@@ -209,7 +209,7 @@ def test_create_pointset(keypoints, min_points, max_points, nonkeypoints,
                          expected):
   assert len(
       algorithms.create_pointset(keypoints, min_points, max_points,
-                                 nonkeypoints)) == expected
+                                 nonkeypoints, random_seed=0)) == expected
 
 
 # ------------------------------------------------------------------------

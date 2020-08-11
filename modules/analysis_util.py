@@ -33,8 +33,7 @@ def label_cluster_size(image_clusters: List[np.ndarray],
       text = str(len(contour))
       cv2.putText(image, text, bottom_left, font, font_scale, color, thickness)
     matplotlib.pyplot.imshow(image)
-    matplotlib.pyplot.imsave(
-        output_path + str(index) + ".png", image)
+    matplotlib.pyplot.imsave("%s-%d.png" % (output_path, index), image)
 
 
 def generate_histogram(samples: np.ndarray,
@@ -54,6 +53,6 @@ def generate_histogram(samples: np.ndarray,
   counts = samples.flatten()
   matplotlib.pyplot.hist(counts)
   matplotlib.pyplot.title(title)
-  matplotlib.pyplot.xlabel(xlabel + ". Median: %f" % np.median(counts))
+  matplotlib.pyplot.xlabel("%s. Median: %f" % (xlabel, np.median(counts)))
   matplotlib.pyplot.ylabel("Frequency")
   matplotlib.pyplot.savefig(output_path)
