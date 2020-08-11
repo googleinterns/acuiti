@@ -16,6 +16,7 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
   def __init__(self,
                dbscan_eps: float = 10,
                dbscan_min_neighbors: int = 5,
+               sc_min_num_points: int = 90,
                sc_max_num_points: int = 90,
                sc_distance_threshold: float = 1,
                nms_iou_threshold: float = 0.9):
@@ -26,18 +27,22 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
          within neighborhood of another point by DBSCAN. (default: {10})
         dbscan_min_neighbors: The number of points needed within a neighborhood
          of a point for it to be a core point by DBSCAN. (default: {5})
+        sc_min_num_points: The *desired* minimum number of points per image
+         patch passed into shape context descriptor algorithm, if possible.
+         Also applies to template icon. (default: {90})
         sc_max_num_points: The maximum number of points per image patch passed
-         into shape context descriptor algorithm; can vary slightly for icon
-         (default: {100})
+         into shape context descriptor algorithm. Also applies to template icon.
+         (default: {90})
         sc_distance_threshold: The maximum shape context distance between an
          icon and an image patch for the image patch to be under consideration
-         (default: {0.3})
+         (default: {1})
         nms_iou_threshold: The maximum IOU between two preliminary bounding
          boxes of image patches before the lower confidence one is discarded by
          non-max-suppression algorithm (default: {0.9})
     """
     self.dbscan_eps = dbscan_eps
     self.dbscan_min_neighbors = dbscan_min_neighbors
+    self.sc_min_num_points = sc_min_num_points
     self.sc_max_num_points = sc_max_num_points
     self.sc_distance_threshold = sc_distance_threshold
     self.nms_iou_threshold = nms_iou_threshold
@@ -72,7 +77,7 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
     nearby_distances = []
 
     icon_pointset = algorithms.create_pointset(icon_contour_keypoints,
-                                               self.sc_max_num_points,
+                                               self.sc_min_num_points,
                                                self.sc_max_num_points,
                                                icon_contour_nonkeypoints)
     # expand the 1st dimension so that the shape is (n, 1, 2),
@@ -82,7 +87,7 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
     for cluster_keypoints, cluster_nonkeypoints in zip(
         image_contour_clusters_keypoints, image_contour_clusters_nonkeypoints):
       cluster_pointset = algorithms.create_pointset(cluster_keypoints,
-                                                    self.sc_max_num_points,
+                                                    self.sc_min_num_points,
                                                     self.sc_max_num_points,
                                                     cluster_nonkeypoints)
 

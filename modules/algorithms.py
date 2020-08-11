@@ -119,23 +119,28 @@ def create_pointset(keypoints: np.ndarray,
   """
   # set the random seed *locally*
   random_state = np.random.RandomState(random_seed)
+  num_keypoints = 0
+  if keypoints is not None:
+    num_keypoints = keypoints.shape[0]
+  num_nonkeypoints = 0
+  if nonkeypoints is not None:
+    num_nonkeypoints = nonkeypoints.shape[0]
   pointset = []
   # keep as many keypoints as possible,
   # so only downsample if there's more than max
-  if len(keypoints) > max_points:
+  if num_keypoints > max_points:
     pointset = keypoints[
-        random_state.choice(keypoints.shape[0], max_points, replace=False), :]
+        random_state.choice(num_keypoints, max_points, replace=False), :]
 
   # introduce as few nonkeypoints as possible,
   # so only try to upsample if it's less than min
-  elif len(keypoints) < min_points:
-    if nonkeypoints is not None and len(nonkeypoints) > 0:  # pylint:disable=g-explicit-length-test
-      if len(keypoints) + len(nonkeypoints) <= min_points:
+  elif num_keypoints < min_points:
+    if num_nonkeypoints:
+      if num_keypoints + num_nonkeypoints <= min_points:
         selected_nonkeypoints = nonkeypoints
       else:
         selected_nonkeypoints = nonkeypoints[random_state.choice(
-            nonkeypoints.shape[0], min_points -
-            len(keypoints), replace=False), :]
+            num_nonkeypoints, min_points - num_keypoints, replace=False), :]
       pointset = np.concatenate((keypoints, selected_nonkeypoints))
     # if there are no nonkeypoints supplied,
     # there's no choice but to just use keypoints
