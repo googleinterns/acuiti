@@ -14,6 +14,7 @@ from typing import Any, List, Tuple
 import cv2
 import memory_profiler
 from modules.bounding_box import BoundingBox
+from modules.confusion_matrix import ConfusionMatrix
 from modules.correctness_metrics import CorrectnessMetrics
 import modules.defaults as defaults
 import numpy as np
@@ -99,8 +100,7 @@ def parse_images_and_icons(
 
 def get_confusion_matrix(
     iou_threshold: float, proposed_boxes: List[List[BoundingBox]],
-    gold_boxes: List[List[BoundingBox]]
-) -> Tuple[Tuple[float, float], Tuple[float, float]]:
+    gold_boxes: List[List[BoundingBox]]) -> Tuple[ConfusionMatrix, List[bool]]:
   """Count the number of true pos, true neg, false pos, false neg in proposed boxes.
 
   Arguments:
@@ -112,12 +112,15 @@ def get_confusion_matrix(
        as the ground truth.
 
   Returns:
-      Tuple((# false pos, # false neg), (# true pos, # true neg))
+      Tuple(ConfusionMatrix of false pos/neg and true pos/neg,
+       correctness_mask of bools corresponding to whether a particular
+       image had zero false positives or negatives
   """
   num_false_pos = 0  # fp
   num_false_neg = 0  # fn
   num_true_pos = 0  # tp
   num_true_neg = 0  # tn
+  correctness_mask = [False for i in range(len(gold_boxes))]
   # for each image:
   #   find the gold box ("match") that maximizes IOU for each proposed box
   #     if two proposed boxes match to the same gold box, use the one with
@@ -127,7 +130,10 @@ def get_confusion_matrix(
   #     otherwise, the match is counted as one fp and one fn
   #   each gold box that never got any matches is counted as a fn
   #   if there were no gold boxes and no proposed boxes we have a tn
-  for proposed_box_list, gold_box_list in zip(proposed_boxes, gold_boxes):
+  for i, (proposed_box_list,
+          gold_box_list) in enumerate(zip(proposed_boxes, gold_boxes)):
+    prev_false_pos = num_false_pos
+    prev_false_neg = num_false_neg
     # mapping from gold boxes to the IOU of their best matching proposed box
     # keys: index of gold box that maximizes the iou of a given proposed box
     #   (not all gold box indices will necessarily be matched to a proposed box
@@ -188,7 +194,10 @@ def get_confusion_matrix(
         matched_gold_index_to_proposed_iou)
     if not proposed_box_list and not gold_box_list:
       num_true_neg += 1  # correctly identified that icon didn't appear in image
-  return ((num_false_pos, num_false_neg), (num_true_pos, num_true_neg))
+    correctness_mask[
+        i] = num_false_neg - prev_false_neg + num_false_pos - prev_false_pos == 0
+  return ConfusionMatrix(num_false_pos, num_false_neg, num_true_pos,
+                         num_true_neg), correctness_mask
 
 
 def evaluate_proposed_bounding_boxes(
@@ -196,7 +205,7 @@ def evaluate_proposed_bounding_boxes(
     proposed_boxes: List[List[BoundingBox]],
     gold_boxes: List[List[BoundingBox]],
     output_path: str = defaults.OUTPUT_PATH,
-) -> CorrectnessMetrics:
+) -> Tuple[CorrectnessMetrics, List[bool]]:
   """Evaluates proposed boxes against gold boxes.
 
   Arguments:
@@ -210,33 +219,14 @@ def evaluate_proposed_bounding_boxes(
        to file at path.
 
   Returns:
-      Tuple(accuracy, precision, recall)
+      Tuple(CorrectnessMetrics, correctness mask corresponding
+       to whether we had zero false pos/neg for each image)
   """
-  (num_false_pos,
-   num_false_neg), (num_true_pos, num_true_neg) = get_confusion_matrix(
-       iou_threshold, proposed_boxes, gold_boxes)
-  accuracy = (num_true_pos + num_true_neg) / (num_true_pos + num_true_neg +
-                                              num_false_pos + num_false_neg)
-  if num_true_pos == 0 and num_false_pos == 0:
-    precision = 1
-  else:
-    precision = num_true_pos / (num_true_pos + num_false_pos)
-  if num_true_pos == 0 and num_false_neg == 0:
-    recall = 1
-  else:
-    recall = num_true_pos / (num_true_pos + num_false_neg)
-
-  if output_path:
-    with open(output_path, "a") as output_file:
-      output_file.write("Accuracy: %f\n" % accuracy)
-      output_file.write("Precision: %f\n" % precision)
-      output_file.write("Recall: %f\n" % recall)
-
-  print("Accuracy: %f\n" % accuracy)
-  print("Precision: %f\n" % precision)
-  print("Recall: %f\n" % recall)
-  correctness_metrics = CorrectnessMetrics(accuracy, precision, recall)
-  return correctness_metrics
+  confusion_matrix, correctness_mask = get_confusion_matrix(
+      iou_threshold, proposed_boxes, gold_boxes)
+  correctness_metrics = confusion_matrix.calculate_correctness_metrics(
+      output_path)
+  return correctness_metrics, correctness_mask
 
 
 class LatencyTimer:

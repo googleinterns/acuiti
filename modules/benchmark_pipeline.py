@@ -34,11 +34,13 @@ class BenchmarkPipeline:
         parsed_image_dataset)
     self.proposed_boxes = []
     self.image_clusters = []
+    self.correctness_mask = []
 
   def visualize_bounding_boxes(self,
                                output_name: str,
                                multi_instance_icon: bool = False,
-                               draw_contours: bool = False):
+                               draw_contours: bool = False,
+                               only_save_failed: bool = False):
     """Visualizes bounding box of icon in its source image.
 
     Draws the proposed bounding boxes in red, and the gold bounding
@@ -50,6 +52,8 @@ class BenchmarkPipeline:
         multi_instance_icon: whether to visualize all bounding boxes
           or just the first
         draw_contours: whether to draw the contour clusters in the image
+        only_save_failed: whether to save only the images that contain
+         at least one false positive or false negative
     """
     for i, image_bgr in enumerate(self.image_list):
       gold_box_list = self.gold_boxes[i]
@@ -63,6 +67,11 @@ class BenchmarkPipeline:
             "but multi_instance_icon is False.")
         gold_box_list = gold_box_list[0:1]
         proposed_box_list = proposed_box_list[0:1]
+
+      # skip if there are no false pos or false neg for this image
+      if only_save_failed:
+        if self.correctness_mask[i]:
+          break
 
       # draw the gold boxes in green
       for box in gold_box_list:
@@ -212,18 +221,24 @@ class BenchmarkPipeline:
                                     find_icon_option + "-visualized",
                                     multi_instance_icon=multi_instance_icon)
     if multi_instance_icon:
-      correctness = util.evaluate_proposed_bounding_boxes(
+      correctness, self.correctness_mask = util.evaluate_proposed_bounding_boxes(
           iou_threshold, self.proposed_boxes, self.gold_boxes, output_path)
     else:
-      correctness = util.evaluate_proposed_bounding_boxes(
+      correctness, self.correctness_mask = util.evaluate_proposed_bounding_boxes(
           iou_threshold, [[boxes[0]] for boxes in self.proposed_boxes],
           [[boxes[0]] for boxes in self.gold_boxes], output_path)
+    analysis_mode = True
     if analysis_mode:
+      self.visualize_bounding_boxes("images/" + find_icon_option + "-failed/" +
+                                    find_icon_option + "-visualized",
+                                    multi_instance_icon=multi_instance_icon,
+                                    draw_contours=True,
+                                    only_save_failed=True)
       analysis_util.label_cluster_size(self.image_clusters, self.image_list,
                                        "images/labelled-contours/")
       samples = []
       for clusters in self.image_clusters:
-        samples.extend(map(len(clusters)))
+        samples.extend(map(len, clusters))
       title = "Number of keypoints in image clusters"
       analysis_util.generate_histogram(np.array(samples), title, title,
                                        "keypoints-histogram.png")
