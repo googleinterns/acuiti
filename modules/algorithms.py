@@ -10,6 +10,8 @@ import sklearn.cluster
 _HIGH_PRECISION_MULTIPLIER = 1.5
 _OPTIMAL_ACCURACY_MULTIPLIER = 3
 _HIGH_RECALL_MULTIPLIER = 13
+# middle confidence level where confidence is from 0 to 1 (this is constant)
+_MIDDLE_CONFIDENCE_LEVEL = 0.5
 
 
 def shape_context_distance(icon_contour: np.ndarray,
@@ -120,12 +122,21 @@ def get_bounding_boxes_from_contours(
   return bboxes, rects
 
 
-def filter_unlikely_bounding_boxes(
+def get_filtered_end_index(
     sorted_sc_distances: np.ndarray,
-    desired_confidence: float = 0.5) -> Tuple[int, int]:
-  """Filter out bounding boxes that are unlikely to occur.
+    desired_confidence: float = 0.5) -> int:
+  """Filter out bounding boxes that should be kept based on desired confidence.
 
-  Unlikeliness is quantified by a desired confidence.
+  At a desired confidence of 0, we favor recall the most, whereas at a desired
+  confidence of 1, we favor precision the most. In general, the higher the
+  confidence, the tighter the distance threshold must be for distances
+  to be kept. The lower the confidence, the looser (higher) the distance
+  threshold can be. This distance threshold is calculated based off the
+  desired confidence, and is a multiple of the minimum distance. Low confidence
+  (high recall) means a higher multiple is used, while high confidence
+  (high precision) means a lower multiple is used. Furthermore, we don't use
+  any absolute distance threshold, because we assume that at least one icon
+  is present in the image.
 
   Arguments:
       sorted_sc_distances: list of shape context distances,in sorted order.
@@ -133,43 +144,40 @@ def filter_unlikely_bounding_boxes(
          are returned, from 0 to 1. (default: {0.5})
 
   Returns:
-      Tuple[start index, end index] of the subarray of distances
-       (and corresponding bounding boxes) that should be kept.
+      end index - one more than the last index of distance to be kept.
   """
-  middle_confidence_level = 0.5
+  precision_interval_length = _OPTIMAL_ACCURACY_MULTIPLIER - _HIGH_PRECISION_MULTIPLIER
+  recall_interval_length = _HIGH_RECALL_MULTIPLIER - _OPTIMAL_ACCURACY_MULTIPLIER
 
   # optimize for accuracy if confidence is not super high or low
-  if desired_confidence == middle_confidence_level:
+  if desired_confidence == _MIDDLE_CONFIDENCE_LEVEL:
     relative_distance_multiplier = _OPTIMAL_ACCURACY_MULTIPLIER
 
   # optimize for recall if confidence is low
-  elif desired_confidence < middle_confidence_level:
+  elif desired_confidence < _MIDDLE_CONFIDENCE_LEVEL:
+    # map desired confidence from [0, middle confidence level) to (0, 1]
+    percent_recall_interval_length = (1 - desired_confidence -
+                                      _MIDDLE_CONFIDENCE_LEVEL) * 2
+    # start with the optimal accuracy multiplier and increase the multiplier
+    # if desired confidence is low, up to the high-recall multiplier
     relative_distance_multiplier = _OPTIMAL_ACCURACY_MULTIPLIER + (
-        1 - desired_confidence) * (_HIGH_RECALL_MULTIPLIER -
-                                   _OPTIMAL_ACCURACY_MULTIPLIER)
+        percent_recall_interval_length * recall_interval_length)
 
   # optimize for precision if confidence is high
-  elif desired_confidence > middle_confidence_level:
+  elif desired_confidence > _MIDDLE_CONFIDENCE_LEVEL:
+    # map desired confidence from (middle confidence level, 1] to [0, 1)
+    percent_precision_interval_length = (1 - desired_confidence) * 2
+    # start with the high precision multiplier and increase the multiplier
+    # if desired confidence is low, up to the optimal accuracy multiplier
     relative_distance_multiplier = _HIGH_PRECISION_MULTIPLIER + (
-        1 - desired_confidence) * (_OPTIMAL_ACCURACY_MULTIPLIER -
-                                   _HIGH_PRECISION_MULTIPLIER)
+        percent_precision_interval_length * precision_interval_length)
 
-  start_index = 0
-  end_index = 0
-  # no absolute distance threshold because we assume that at least one icon
-  # is present
-  relative_max_dist = relative_distance_multiplier * sorted_sc_distances[
-      start_index]
-
-  curr_distance = sorted_sc_distances[end_index]
+  relative_max_dist = relative_distance_multiplier * sorted_sc_distances[0]
   # we want end_index to be one more than the index of the last kept bbox
-  while curr_distance < relative_max_dist:
-    end_index += 1
-    if end_index < len(sorted_sc_distances):
-      curr_distance = sorted_sc_distances[end_index]
-    else:
-      break
-  return start_index, end_index
+  for i in range(len(sorted_sc_distances)):
+    if sorted_sc_distances[i] > relative_max_dist:
+      return i
+  return len(sorted_sc_distances)
 
 
 def suppress_overlapping_bounding_boxes(
