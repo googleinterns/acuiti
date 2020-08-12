@@ -7,7 +7,7 @@ This contains:
 from typing import List
 
 import cv2
-import matplotlib
+import matplotlib.pyplot
 import numpy as np
 
 
@@ -36,9 +36,7 @@ def label_cluster_size(image_clusters: List[np.ndarray],
     matplotlib.pyplot.imsave("%s-%d.png" % (output_path, index), image)
 
 
-def generate_histogram(samples: np.ndarray,
-                       title: str,
-                       xlabel: str,
+def generate_histogram(samples: np.ndarray, title: str, xlabel: str,
                        output_path: str):
   """Generate a histogram based off of samples.
 
@@ -56,3 +54,18 @@ def generate_histogram(samples: np.ndarray,
   matplotlib.pyplot.xlabel("%s. Median: %f" % (xlabel, np.median(counts)))
   matplotlib.pyplot.ylabel("Frequency")
   matplotlib.pyplot.savefig(output_path)
+
+
+def save_icon_with_image(icon: np.ndarray, image: np.ndarray, filename: str):
+  """Save icon and image side by side.
+
+  Arguments:
+      icon: numpy array representing the icon
+      image: numpy array representing the UI image
+      filename: filename for where to save the icon and image.
+  """
+  fig, ax = matplotlib.pyplot.subplots(figsize=(20, 10))
+  ax.imshow(image)
+  ax.axis("off")
+  fig.figimage(icon, 0, 0)
+  matplotlib.pyplot.savefig(filename, bbox_inches="tight", pad_inches=0.5)

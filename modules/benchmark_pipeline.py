@@ -4,7 +4,6 @@ import argparse
 from typing import Tuple
 
 import cv2
-import matplotlib.pyplot
 from modules import analysis_util
 from modules import defaults
 from modules import icon_finder_random
@@ -34,6 +33,7 @@ class BenchmarkPipeline:
         parsed_image_dataset)
     self.proposed_boxes = []
     self.image_clusters = []
+    self.icon_contours = []
     self.correctness_mask = []
 
   def visualize_bounding_boxes(self,
@@ -55,10 +55,12 @@ class BenchmarkPipeline:
         only_save_failed: whether to save only the images that contain
          at least one false positive or false negative
     """
-    for i, image_bgr in enumerate(self.image_list):
+    for i, (image_bgr,
+            icon_bgr) in enumerate(zip(self.image_list, self.icon_list)):
       gold_box_list = self.gold_boxes[i]
       proposed_box_list = self.proposed_boxes[i]
       image_bgr_copy = image_bgr.copy()
+      icon_bgr_copy = icon_bgr.copy()
 
       # consider only the first returned icon for single-instance case
       if not multi_instance_icon:
@@ -68,22 +70,20 @@ class BenchmarkPipeline:
         gold_box_list = gold_box_list[0:1]
         proposed_box_list = proposed_box_list[0:1]
 
-      # skip if there are no false pos or false neg for this image
-      if only_save_failed:
-        if self.correctness_mask[i]:
-          break
+      if only_save_failed and self.correctness_mask[i]:
+        continue
 
       # draw the gold boxes in green
       for box in gold_box_list:
         # top left and bottom right corner of rectangle
         cv2.rectangle(image_bgr_copy, (box.min_x, box.min_y),
-                      (box.max_x, box.max_y), (0, 255, 0), 3)
+                      (box.max_x, box.max_y), (0, 255, 0), 2)
 
       # draw the proposed boxes in red
       for box in proposed_box_list:
         # top left and bottom right corner of rectangle
         cv2.rectangle(image_bgr_copy, (box.min_x, box.min_y),
-                      (box.max_x, box.max_y), (0, 0, 255), 3)
+                      (box.max_x, box.max_y), (0, 0, 255), 2)
 
       if draw_contours:
         # draw each contour cluster in the image with a distinct color
@@ -92,12 +92,15 @@ class BenchmarkPipeline:
         for j in range(0, len(self.image_clusters[i])):
           color = colors[j % len(colors)]
           cv2.drawContours(image_bgr_copy, self.image_clusters[i], j, color, 1)
+        cv2.drawContours(icon_bgr_copy, [self.icon_contours[i]], -1,
+                         (128, 0, 128), 1)
       image_rgb = cv2.cvtColor(image_bgr_copy, cv2.COLOR_BGR2RGB)
-
+      icon_rgb = cv2.cvtColor(icon_bgr_copy, cv2.COLOR_BGR2RGB)
       if image_rgb is None:
         print("Could not read the image.")
-      matplotlib.pyplot.imshow(image_rgb)
-      matplotlib.pyplot.imsave(output_name + str(i) + ".png", image_rgb)
+
+      analysis_util.save_icon_with_image(icon_rgb, image_rgb,
+                                         output_name + str(i) + ".png")
 
   def calculate_latency(self, icon_finder, output_path: str) -> float:
     """Uses LatencyTimer to calculate average time taken by icon_finder.
@@ -119,10 +122,12 @@ class BenchmarkPipeline:
     for image, icon in zip(self.image_list, self.icon_list):
       timer = util.LatencyTimer()  # pytype: disable=module-attr
       timer.start()
-      bboxes, image_contour_clusters = icon_finder.find_icons(image, icon)
+      bboxes, image_contour_clusters, icon_contour = icon_finder.find_icons(
+          image, icon)
       timer.stop()
       self.proposed_boxes.append(bboxes)
       self.image_clusters.append(image_contour_clusters)
+      self.icon_contours.append(icon_contour)
       times.append(timer.calculate_info(output_path))
     print("Average time per image: %f" % np.mean(times))
     return np.mean(times)
@@ -227,7 +232,7 @@ class BenchmarkPipeline:
       correctness, self.correctness_mask = util.evaluate_proposed_bounding_boxes(
           iou_threshold, [[boxes[0]] for boxes in self.proposed_boxes],
           [[boxes[0]] for boxes in self.gold_boxes], output_path)
-    analysis_mode = True
+
     if analysis_mode:
       self.visualize_bounding_boxes("images/" + find_icon_option + "-failed/" +
                                     find_icon_option + "-visualized",
