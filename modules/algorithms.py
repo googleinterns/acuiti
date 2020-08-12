@@ -6,6 +6,13 @@ from modules.bounding_box import BoundingBox
 import numpy as np
 import sklearn.cluster
 
+# experimentally-derived constants for the precision-recall curve
+_HIGH_PRECISION_MULTIPLIER = 1.5
+_OPTIMAL_ACCURACY_MULTIPLIER = 3
+_HIGH_RECALL_MULTIPLIER = 13
+# middle confidence level where confidence is from 0 to 1 (this is constant)
+_MIDDLE_CONFIDENCE_LEVEL = 0.5
+
 
 def shape_context_distance(icon_contour: np.ndarray,
                            image_contour: np.ndarray) -> float:
@@ -113,6 +120,61 @@ def get_bounding_boxes_from_contours(
     bbox = BoundingBox(x, y, x + w, y + h)
     bboxes.append(bbox)
   return bboxes, rects
+
+
+def get_distance_threshold(
+    sc_distances: np.ndarray,
+    desired_confidence: float = _MIDDLE_CONFIDENCE_LEVEL) -> float:
+  """Return distance threshold that can be used to filter out bounding boxes.
+
+  At a desired confidence of 0, we favor recall the most, whereas at a desired
+  confidence of 1, we favor precision the most. In general, the higher the
+  confidence, the tighter the distance threshold must be for distances
+  to be kept. The lower the confidence, the looser (higher) the distance
+  threshold can be. This distance threshold is calculated based off the
+  desired confidence, and is a multiple of the minimum distance. Low confidence
+  (high recall) means a higher multiple is used, while high confidence
+  (high precision) means a lower multiple is used. Furthermore, we don't use
+  any absolute distance threshold, because we assume that at least one icon
+  is present in the image.
+
+  Arguments:
+      sc_distances: list of shape context distances.
+      desired_confidence: The desired confidence for the bounding boxes that
+         are returned, from 0 to 1. (default: {0.5})
+
+  Returns:
+      distance threshold - (float) threshold that can be used by clients to
+        filter out distances that are above that threshold.
+  """
+  precision_interval_length = _OPTIMAL_ACCURACY_MULTIPLIER - _HIGH_PRECISION_MULTIPLIER
+  recall_interval_length = _HIGH_RECALL_MULTIPLIER - _OPTIMAL_ACCURACY_MULTIPLIER
+
+  # optimize for accuracy if confidence is not super high or low
+  if desired_confidence == _MIDDLE_CONFIDENCE_LEVEL:
+    relative_distance_multiplier = _OPTIMAL_ACCURACY_MULTIPLIER
+
+  # optimize for recall if confidence is low
+  elif desired_confidence < _MIDDLE_CONFIDENCE_LEVEL:
+    # map desired confidence from [0, middle confidence level) to (0, 1]
+    percent_recall_interval_length = desired_confidence / _MIDDLE_CONFIDENCE_LEVEL
+    # start with the optimal accuracy multiplier and increase the multiplier
+    # if desired confidence is low, up to the high-recall multiplier
+    relative_distance_multiplier = _OPTIMAL_ACCURACY_MULTIPLIER + (
+        percent_recall_interval_length * recall_interval_length)
+
+  # optimize for precision if confidence is high
+  elif desired_confidence > _MIDDLE_CONFIDENCE_LEVEL:
+    # map desired confidence from (middle confidence level, 1] to [0, 1)
+    percent_precision_interval_length = (1 - desired_confidence) / (
+        1 - _MIDDLE_CONFIDENCE_LEVEL)
+    # start with the high precision multiplier and increase the multiplier
+    # if desired confidence is low, up to the optimal accuracy multiplier
+    relative_distance_multiplier = _HIGH_PRECISION_MULTIPLIER + (
+        percent_precision_interval_length * precision_interval_length)
+
+  relative_max_dist = relative_distance_multiplier * min(sc_distances)
+  return relative_max_dist
 
 
 def suppress_overlapping_bounding_boxes(
