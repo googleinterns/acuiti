@@ -1,6 +1,5 @@
 from modules import algorithms
 from modules import util
-import modules.benchmark_pipeline
 from modules.bounding_box import BoundingBox
 from modules.correctness_metrics import CorrectnessMetrics
 import numpy as np
@@ -210,16 +209,3 @@ def test_create_pointset(keypoints, min_points, max_points, nonkeypoints,
   assert len(
       algorithms.create_pointset(keypoints, min_points, max_points,
                                  nonkeypoints, random_seed=0)) == expected
-
-
-# ------------------------------------------------------------------------
-# ---------------------- test entire benchmark pipeline -------------------
-# -------------------------------------------------------------------------
-def test_benchmark():
-  find_icon_benchmark = modules.benchmark_pipeline.BenchmarkPipeline()
-  correctness, avg_time_secs, avg_memory_mibs = find_icon_benchmark.evaluate()
-  assert avg_memory_mibs <= 1000
-  assert avg_time_secs <= 60
-  assert correctness.accuracy >= 0
-  assert correctness.precision >= 0
-  assert correctness.recall >= 0
