@@ -12,6 +12,7 @@ import numpy as np
 
 class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable=module-attr
   """This class generates bounding boxes via Shape Context Descriptors."""
+
   def __init__(self,
                desired_confidence: float = 0.5,
                dbscan_eps: float = 10,

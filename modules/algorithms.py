@@ -109,7 +109,9 @@ def create_pointset(keypoints: np.ndarray,
 
   If there are enough keypoints and nonkeypoints, the resulting pointset
   will be at least min_points large. In all cases, the resulting pointset
-  will be less than or equal to max_points in size.
+  will be less than or equal to max_points in size. Nonkeypoints are used
+  to bring the size up to min_points if needed (upsampling). Keypoints are only
+  downsampled if the current size is greater than max_points.
 
   Arguments:
       keypoints: an array of [x, y] points representing keypoints
@@ -132,31 +134,23 @@ def create_pointset(keypoints: np.ndarray,
   num_nonkeypoints = 0
   if nonkeypoints is not None:
     num_nonkeypoints = nonkeypoints.shape[0]
-  pointset = []
-  # keep as many keypoints as possible,
-  # so only downsample if there's more than max
+  pointset = keypoints
+
   if num_keypoints > max_points:
+    # downsample as few keypoints as possible
     pointset = keypoints[
         random_state.choice(num_keypoints, max_points, replace=False), :]
 
-  # introduce as few nonkeypoints as possible,
-  # so only try to upsample if it's less than min
   elif num_keypoints < min_points:
     if num_nonkeypoints:
       if num_keypoints + num_nonkeypoints <= min_points:
         selected_nonkeypoints = nonkeypoints
       else:
+        # upsample as few nonkeypoints as possible
         selected_nonkeypoints = nonkeypoints[random_state.choice(
             num_nonkeypoints, min_points - num_keypoints, replace=False), :]
       pointset = np.concatenate((keypoints, selected_nonkeypoints))
-    # if there are no nonkeypoints supplied,
-    # there's no choice but to just use keypoints
-    else:
-      pointset = keypoints
 
-  # the number of keypoints is already within the range [min, max]
-  else:
-    pointset = keypoints
   return pointset
 
 

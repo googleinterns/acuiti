@@ -26,6 +26,7 @@ class BenchmarkPipeline:
     benchmark = BenchmarkPipeline("benchmark.tfrecord")
     benchmark.evaluate()
   """
+
   def __init__(self, tfrecord_path: str = defaults.TFRECORD_PATH):
     parsed_image_dataset = util.parse_image_dataset(tfrecord_path)
     self.gold_boxes = util.parse_gold_boxes(parsed_image_dataset)

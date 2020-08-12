@@ -1,6 +1,19 @@
 import modules.benchmark_pipeline
 
 
+# ------------------------------------------------------------------------
+# ---------------------- test entire benchmark pipeline -------------------
+# -------------------------------------------------------------------------
+def test_benchmark():
+  find_icon_benchmark = modules.benchmark_pipeline.BenchmarkPipeline()
+  correctness, avg_time_secs, avg_memory_mibs = find_icon_benchmark.evaluate()
+  assert avg_memory_mibs <= 1000
+  assert avg_time_secs <= 60
+  assert correctness.accuracy >= 0
+  assert correctness.precision >= 0
+  assert correctness.recall >= 0
+
+
 def test_single_instance_benchmark():
   find_icon_single_instance = modules.benchmark_pipeline.BenchmarkPipeline(
       tfrecord_path="datasets/benchmark_single_instance.tfrecord")
