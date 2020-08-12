@@ -223,7 +223,7 @@ class BenchmarkPipeline:
                                        "images/labelled-contours/")
       samples = []
       for clusters in self.image_clusters:
-        samples.extend(map(len(clusters)))
+        samples.extend(map(len, clusters))
       title = "Number of keypoints in image clusters"
       analysis_util.generate_histogram(np.array(samples), title, title,
                                        "keypoints-histogram.png")

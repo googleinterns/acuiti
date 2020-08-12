@@ -106,7 +106,7 @@ def create_pointset(keypoints: np.ndarray,
 
   Arguments:
       keypoints: an array of [x, y] points representing keypoints
-      min_points: the minimum desired number of poitns we want in pointset
+      min_points: the minimum desired number of points we want in pointset
       max_points: the upper limit of points we want in point set
       nonkeypoints: an optional array of [x, y] points representing nonkeypoints
         If provided, these points will be used to bring the pointset size up to
