@@ -54,8 +54,8 @@ def detect_contours(
 
 def cluster_contours_dbscan(
     image_contours: np.ndarray,
-    eps: float = 10,
-    min_samples: int = 5) -> Tuple[List[np.ndarray], List[np.ndarray]]:
+    eps: float = 7.5,
+    min_samples: int = 2) -> Tuple[List[np.ndarray], List[np.ndarray]]:
   """Group contours using DBSCAN.
 
   Arguments:
