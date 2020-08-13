@@ -5,7 +5,6 @@ from typing import List, Tuple
 import cv2
 
 from modules import algorithms
-from modules import defaults
 from modules.bounding_box import BoundingBox
 import modules.icon_finder
 import numpy as np
@@ -15,7 +14,7 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
   """This class generates bounding boxes via Shape Context Descriptors."""
 
   def __init__(self,
-               desired_confidence: float = defaults.DESIRED_CONFIDENCE,
+               desired_confidence: float = 0.5,
                dbscan_eps: float = 10,
                dbscan_min_neighbors: int = 5,
                sc_min_num_points: int = 90,
