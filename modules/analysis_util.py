@@ -69,3 +69,4 @@ def save_icon_with_image(icon: np.ndarray, image: np.ndarray, filename: str):
   ax.axis("off")
   fig.figimage(icon, 0, 0)
   matplotlib.pyplot.savefig(filename, bbox_inches="tight", pad_inches=0.5)
+  matplotlib.pyplot.close(fig=fig)
