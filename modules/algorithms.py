@@ -100,6 +100,60 @@ def cluster_contours_dbscan(
   return contour_groups, core_samples_mask_groups
 
 
+def resize_pointset(keypoints: np.ndarray,
+                    min_points: int,
+                    max_points: int,
+                    nonkeypoints: np.ndarray = None,
+                    random_seed: int = 0) -> np.ndarray:
+  """Resize pointset to be within [min, max] whenever possible.
+
+  If there are enough keypoints and nonkeypoints, the resulting pointset
+  will be at least min_points large. In all cases, the resulting pointset
+  will be less than or equal to max_points in size. Nonkeypoints are used
+  to bring the size up to min_points if needed (upsampling). Keypoints are only
+  downsampled if the current size is greater than max_points.
+
+  Arguments:
+      keypoints: an array of [x, y] points representing keypoints
+      min_points: the minimum desired number of points we want in pointset
+      max_points: the upper limit of points we want in point set
+      nonkeypoints: an optional array of [x, y] points representing nonkeypoints
+        If provided, these points will be used to bring the pointset size up to
+        min_points as much as possible. (Default: None)
+      random_seed: the random seed to use for numpy's PRG functions.
+       (Default: 0)
+
+  Returns:
+      np.ndarray: resulting pointset after possibly upsampling or downsampling.
+  """
+  # set the random seed *locally*
+  random_state = np.random.RandomState(random_seed)
+  num_keypoints = 0
+  if keypoints is not None:
+    num_keypoints = keypoints.shape[0]
+  num_nonkeypoints = 0
+  if nonkeypoints is not None:
+    num_nonkeypoints = nonkeypoints.shape[0]
+  pointset = keypoints
+
+  if num_keypoints > max_points:
+    # downsample as few keypoints as possible
+    pointset = keypoints[
+        random_state.choice(num_keypoints, max_points, replace=False), :]
+
+  elif num_keypoints < min_points:
+    if num_nonkeypoints:
+      if num_keypoints + num_nonkeypoints <= min_points:
+        selected_nonkeypoints = nonkeypoints
+      else:
+        # upsample as few nonkeypoints as possible
+        selected_nonkeypoints = nonkeypoints[random_state.choice(
+            num_nonkeypoints, min_points - num_keypoints, replace=False), :]
+      pointset = np.concatenate((keypoints, selected_nonkeypoints))
+
+  return pointset
+
+
 def get_bounding_boxes_from_contours(
     contours: np.ndarray) -> Tuple[List[BoundingBox], List[List[int]]]:
   """Convert a list of contours into a list of corresponding bounding boxes.

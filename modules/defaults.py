@@ -3,7 +3,7 @@
 This is where default configurations should be set
 and updated.
 """
-IOU_THRESHOLD = 0.2
+IOU_THRESHOLD = 0.15
 TFRECORD_PATH = "datasets/benchmark_single_instance.tfrecord"
 FIND_ICON_OPTION = "shape-context"
 OUTPUT_PATH = ""

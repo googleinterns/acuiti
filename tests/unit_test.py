@@ -5,6 +5,9 @@ from modules.correctness_metrics import CorrectnessMetrics
 import numpy as np
 import pytest
 
+# ------------------------------------------------------------------------
+# ------------------------------- test IOU logic -------------------------
+# -------------------------------------------------------------------------
 _BOX_A = BoundingBox(20, 20, 29, 29)
 _BOX_B = BoundingBox(0, 0, 24, 24)
 _BOX_C = BoundingBox(1, 2, 3, 4)
@@ -12,7 +15,7 @@ _BOX_D = BoundingBox(2, 3, 4, 5)
 _BOX_E = BoundingBox(3, 1, 4, 2)
 _BOX_F = BoundingBox(2, 2, 3, 3)
 _BOX_G = BoundingBox(2, 1, 3, 2)
-# The following two test suites test the IOU calculation for bounding boxes
+# The following test suite tests the IOU calculation for bounding boxes
 # in these cases, in order:
 # -- partial overlap between boxes (diagonal on upper right)
 # -- no overlap between bounding boxes
@@ -32,6 +35,10 @@ bounding_box_tests = [(_BOX_A, _BOX_B, 25 / 700), (_BOX_A, _BOX_C, 0),
 def test_iou(box_1, box_2, expected):
   assert box_1.calculate_iou(box_2) == expected
 
+
+# ------------------------------------------------------------------------
+# ------- test multi-instance accuracy, precision, and recall calculations
+# -------------------------------------------------------------------------
 
 _BOX_LIST_1 = [[_BOX_A, _BOX_B], [_BOX_C, _BOX_D]]
 _BOX_LIST_2 = [[_BOX_B, _BOX_A], [_BOX_D, _BOX_C]]
@@ -98,6 +105,9 @@ def test_get_confusion_matrix(iou_threshold, proposed_boxes, gold_boxes,
                                    gold_boxes) == expected
 
 
+# ------------------------------------------------------------------------
+# ------------------test shape context algorithm -------------------------
+# -------------------------------------------------------------------------
 icon_contour_1 = np.array([[0, 0], [0, 4], [4, 0], [4, 4]])
 icon_contour_2 = np.array([[0, 0], [0, 7], [7, 0], [7, 7]])
 icon_contour_3 = np.array([[0, 0], [0, 6], [4, 0], [4, 6]])
@@ -118,6 +128,10 @@ shape_context_tests = [
 def test_shape_context(icon_1, icon_2, expected):
   assert algorithms.shape_context_distance(icon_1, icon_2) <= expected
 
+
+# ------------------------------------------------------------------------
+# -------------------------test non-max suppression -----------------------
+# -------------------------------------------------------------------------
 
 icon_bbox_1 = BoundingBox(0, 0, 4, 4)
 icon_bbox_2 = BoundingBox(0, 0, 7, 7)
@@ -155,3 +169,43 @@ def test_get_nms_bounding_boxes(bboxes, rects, confidences,
       algorithms.suppress_overlapping_bounding_boxes(
           bboxes, rects, confidences, confidence_threshold,
           nms_threshold)) == expected
+
+
+# ------------------------------------------------------------------------
+# ---------------------- test upsampling & downsampling -------------------
+# -------------------------------------------------------------------------
+# The following test suite tests the creation of pointsets of a certain desired
+# size in these cases, in order:
+# -- number of keypoints is exactly max
+# -- number of keypoints is less than min,
+#     and there are enough nonkeypoints to get to min
+# -- number of keypoints is less than min,
+#     but there aren't enough nonkeypoints to get to min
+# -- number of keypoints is less than min,
+#     but there are no keypoints
+# -- number of keypoints is more than max
+# -- number of keypoints is exactly min
+# -- number of keypoints is less than max and more than min
+keypoints_1 = np.full((3, 2), 1)
+keypoints_2 = np.full((6, 2), 1)
+keypoints_3 = np.full((5, 2), 1)
+nonkeypoints_1 = np.full((4, 2), 1)
+nonkeypoints_2 = np.full((7, 2), 1)
+nonkeypoints_3 = np.full((8, 2), 1)
+
+pointset_tests = [(keypoints_1, 2, 3, nonkeypoints_1, 3),
+                  (keypoints_2, 7, 7, nonkeypoints_2, 7),
+                  (keypoints_3, 14, 15, nonkeypoints_3, 13),
+                  (keypoints_1, 4, 5, None, 3),
+                  (keypoints_2, 3, 3, nonkeypoints_2, 3),
+                  (keypoints_3, 5, 5, nonkeypoints_3, 5),
+                  (keypoints_1, 1, 4, nonkeypoints_1, 3)]
+
+
+@pytest.mark.parametrize(
+    "keypoints,min_points,max_points,nonkeypoints,expected", pointset_tests)
+def test_create_pointset(keypoints, min_points, max_points, nonkeypoints,
+                         expected):
+  assert len(
+      algorithms.resize_pointset(keypoints, min_points, max_points,
+                                 nonkeypoints, random_seed=0)) == expected
