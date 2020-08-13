@@ -100,12 +100,12 @@ def cluster_contours_dbscan(
   return contour_groups, core_samples_mask_groups
 
 
-def create_pointset(keypoints: np.ndarray,
+def resize_pointset(keypoints: np.ndarray,
                     min_points: int,
                     max_points: int,
                     nonkeypoints: np.ndarray = None,
                     random_seed: int = 0) -> np.ndarray:
-  """Downsample and upsample pointset to a certain size.
+  """Resize pointset to be within [min, max] whenever possible.
 
   If there are enough keypoints and nonkeypoints, the resulting pointset
   will be at least min_points large. In all cases, the resulting pointset

@@ -207,5 +207,5 @@ pointset_tests = [(keypoints_1, 2, 3, nonkeypoints_1, 3),
 def test_create_pointset(keypoints, min_points, max_points, nonkeypoints,
                          expected):
   assert len(
-      algorithms.create_pointset(keypoints, min_points, max_points,
+      algorithms.resize_pointset(keypoints, min_points, max_points,
                                  nonkeypoints, random_seed=0)) == expected

@@ -80,7 +80,7 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
     nearby_contours = []
     nearby_distances = []
 
-    icon_pointset = algorithms.create_pointset(icon_contour_keypoints,
+    icon_pointset = algorithms.resize_pointset(icon_contour_keypoints,
                                                self.sc_min_num_points,
                                                self.sc_max_num_points,
                                                icon_contour_nonkeypoints)
@@ -90,7 +90,7 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
 
     for cluster_keypoints, cluster_nonkeypoints in zip(
         image_contour_clusters_keypoints, image_contour_clusters_nonkeypoints):
-      cluster_pointset = algorithms.create_pointset(cluster_keypoints,
+      cluster_pointset = algorithms.resize_pointset(cluster_keypoints,
                                                     self.sc_min_num_points,
                                                     self.sc_max_num_points,
                                                     cluster_nonkeypoints)

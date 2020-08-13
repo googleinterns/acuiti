@@ -7,7 +7,7 @@ This contains:
 from typing import List
 
 import cv2
-import matplotlib
+import matplotlib.pyplot
 import numpy as np
 
 
@@ -51,8 +51,10 @@ def generate_histogram(samples: np.ndarray,
       output_path: file path for resulting histogram plot to be saved at
   """
   counts = samples.flatten()
+  fig = matplotlib.pyplot.figure()
   matplotlib.pyplot.hist(counts)
   matplotlib.pyplot.title(title)
   matplotlib.pyplot.xlabel("%s. Median: %f" % (xlabel, np.median(counts)))
   matplotlib.pyplot.ylabel("Frequency")
   matplotlib.pyplot.savefig(output_path)
+  matplotlib.pyplot.close(fig=fig)
