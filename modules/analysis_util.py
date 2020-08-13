@@ -49,11 +49,13 @@ def generate_histogram(samples: np.ndarray, title: str, xlabel: str,
       output_path: file path for resulting histogram plot to be saved at
   """
   counts = samples.flatten()
+  fig = matplotlib.pyplot.figure()
   matplotlib.pyplot.hist(counts)
   matplotlib.pyplot.title(title)
   matplotlib.pyplot.xlabel("%s. Median: %f" % (xlabel, np.median(counts)))
   matplotlib.pyplot.ylabel("Frequency")
   matplotlib.pyplot.savefig(output_path)
+  matplotlib.pyplot.close(fig=fig)
 
 
 def save_icon_with_image(icon: np.ndarray, image: np.ndarray, filename: str):

@@ -6,6 +6,13 @@ from modules.bounding_box import BoundingBox
 import numpy as np
 import sklearn.cluster
 
+# experimentally-derived constants for the precision-recall curve
+_HIGH_PRECISION_MULTIPLIER = 1.5
+_OPTIMAL_ACCURACY_MULTIPLIER = 3
+_HIGH_RECALL_MULTIPLIER = 13
+# middle confidence level where confidence is from 0 to 1 (this is constant)
+_MIDDLE_CONFIDENCE_LEVEL = 0.5
+
 
 def shape_context_distance(icon_contour: np.ndarray,
                            image_contour: np.ndarray) -> float:
@@ -93,20 +100,22 @@ def cluster_contours_dbscan(
   return contour_groups, core_samples_mask_groups
 
 
-def create_pointset(keypoints: np.ndarray,
+def resize_pointset(keypoints: np.ndarray,
                     min_points: int,
                     max_points: int,
                     nonkeypoints: np.ndarray = None,
                     random_seed: int = 0) -> np.ndarray:
-  """Downsample and upsample pointset to a certain size.
+  """Resize pointset to be within [min, max] whenever possible.
 
   If there are enough keypoints and nonkeypoints, the resulting pointset
   will be at least min_points large. In all cases, the resulting pointset
-  will be less than or equal to max_points in size.
+  will be less than or equal to max_points in size. Nonkeypoints are used
+  to bring the size up to min_points if needed (upsampling). Keypoints are only
+  downsampled if the current size is greater than max_points.
 
   Arguments:
       keypoints: an array of [x, y] points representing keypoints
-      min_points: the minimum desired number of poitns we want in pointset
+      min_points: the minimum desired number of points we want in pointset
       max_points: the upper limit of points we want in point set
       nonkeypoints: an optional array of [x, y] points representing nonkeypoints
         If provided, these points will be used to bring the pointset size up to
@@ -125,31 +134,23 @@ def create_pointset(keypoints: np.ndarray,
   num_nonkeypoints = 0
   if nonkeypoints is not None:
     num_nonkeypoints = nonkeypoints.shape[0]
-  pointset = []
-  # keep as many keypoints as possible,
-  # so only downsample if there's more than max
+  pointset = keypoints
+
   if num_keypoints > max_points:
+    # downsample as few keypoints as possible
     pointset = keypoints[
         random_state.choice(num_keypoints, max_points, replace=False), :]
 
-  # introduce as few nonkeypoints as possible,
-  # so only try to upsample if it's less than min
   elif num_keypoints < min_points:
     if num_nonkeypoints:
       if num_keypoints + num_nonkeypoints <= min_points:
         selected_nonkeypoints = nonkeypoints
       else:
+        # upsample as few nonkeypoints as possible
         selected_nonkeypoints = nonkeypoints[random_state.choice(
             num_nonkeypoints, min_points - num_keypoints, replace=False), :]
       pointset = np.concatenate((keypoints, selected_nonkeypoints))
-    # if there are no nonkeypoints supplied,
-    # there's no choice but to just use keypoints
-    else:
-      pointset = keypoints
 
-  # the number of keypoints is already within the range [min, max]
-  else:
-    pointset = keypoints
   return pointset
 
 
@@ -173,6 +174,61 @@ def get_bounding_boxes_from_contours(
     bbox = BoundingBox(x, y, x + w, y + h)
     bboxes.append(bbox)
   return bboxes, rects
+
+
+def get_distance_threshold(
+    sc_distances: np.ndarray,
+    desired_confidence: float = _MIDDLE_CONFIDENCE_LEVEL) -> float:
+  """Return distance threshold that can be used to filter out bounding boxes.
+
+  At a desired confidence of 0, we favor recall the most, whereas at a desired
+  confidence of 1, we favor precision the most. In general, the higher the
+  confidence, the tighter the distance threshold must be for distances
+  to be kept. The lower the confidence, the looser (higher) the distance
+  threshold can be. This distance threshold is calculated based off the
+  desired confidence, and is a multiple of the minimum distance. Low confidence
+  (high recall) means a higher multiple is used, while high confidence
+  (high precision) means a lower multiple is used. Furthermore, we don't use
+  any absolute distance threshold, because we assume that at least one icon
+  is present in the image.
+
+  Arguments:
+      sc_distances: list of shape context distances.
+      desired_confidence: The desired confidence for the bounding boxes that
+         are returned, from 0 to 1. (default: {0.5})
+
+  Returns:
+      distance threshold - (float) threshold that can be used by clients to
+        filter out distances that are above that threshold.
+  """
+  precision_interval_length = _OPTIMAL_ACCURACY_MULTIPLIER - _HIGH_PRECISION_MULTIPLIER
+  recall_interval_length = _HIGH_RECALL_MULTIPLIER - _OPTIMAL_ACCURACY_MULTIPLIER
+
+  # optimize for accuracy if confidence is not super high or low
+  if desired_confidence == _MIDDLE_CONFIDENCE_LEVEL:
+    relative_distance_multiplier = _OPTIMAL_ACCURACY_MULTIPLIER
+
+  # optimize for recall if confidence is low
+  elif desired_confidence < _MIDDLE_CONFIDENCE_LEVEL:
+    # map desired confidence from [0, middle confidence level) to (0, 1]
+    percent_recall_interval_length = desired_confidence / _MIDDLE_CONFIDENCE_LEVEL
+    # start with the optimal accuracy multiplier and increase the multiplier
+    # if desired confidence is low, up to the high-recall multiplier
+    relative_distance_multiplier = _OPTIMAL_ACCURACY_MULTIPLIER + (
+        percent_recall_interval_length * recall_interval_length)
+
+  # optimize for precision if confidence is high
+  elif desired_confidence > _MIDDLE_CONFIDENCE_LEVEL:
+    # map desired confidence from (middle confidence level, 1] to [0, 1)
+    percent_precision_interval_length = (1 - desired_confidence) / (
+        1 - _MIDDLE_CONFIDENCE_LEVEL)
+    # start with the high precision multiplier and increase the multiplier
+    # if desired confidence is low, up to the optimal accuracy multiplier
+    relative_distance_multiplier = _HIGH_PRECISION_MULTIPLIER + (
+        percent_precision_interval_length * precision_interval_length)
+
+  relative_max_dist = relative_distance_multiplier * min(sc_distances)
+  return relative_max_dist
 
 
 def suppress_overlapping_bounding_boxes(
