@@ -104,7 +104,7 @@ class BenchmarkPipeline:
     for image, icon in zip(self.image_list, self.icon_list):
       timer = util.LatencyTimer()  # pytype: disable=module-attr
       timer.start()
-      _, _ = icon_finder.find_icons(image, icon)
+      _, _ = icon_finder_object.find_icons(image, icon)
       timer.stop()
       times.append(timer.calculate_info(output_path))
     print("Average time per image: %f" % np.mean(times))
@@ -160,11 +160,10 @@ class BenchmarkPipeline:
          was passed in as False
     """
     for image, icon in zip(self.image_list, self.icon_list):
-      bboxes, image_contour_clusters, icon_contour = icon_finder_object.find_icons(
+      bboxes, image_contour_clusters = icon_finder_object.find_icons(
           image, icon)
       self.proposed_boxes.append(bboxes)
       self.image_clusters.append(image_contour_clusters)
-      self.icon_contours.append(icon_contour)
 
     latency = -1
     memory = -1

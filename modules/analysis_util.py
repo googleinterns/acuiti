@@ -36,9 +36,7 @@ def label_cluster_size(image_clusters: List[np.ndarray],
     matplotlib.pyplot.imsave("%s-%d.png" % (output_path, index), image)
 
 
-def generate_histogram(samples: np.ndarray,
-                       title: str,
-                       xlabel: str,
+def generate_histogram(samples: np.ndarray, title: str, xlabel: str,
                        output_path: str):
   """Generate a histogram based off of samples.
 
@@ -74,8 +72,25 @@ def save_icon_with_image(icon: np.ndarray, image: np.ndarray, filename: str):
   matplotlib.pyplot.close(fig=fig)
 
 
-def generate_scatterplot(x: np.ndarray, y: np.ndarray, title: str, xlabel: str, ylabel: str,
-                       output_path: str, connect_points: bool = True):
+def generate_scatterplot(x: np.ndarray,
+                         y: np.ndarray,
+                         title: str,
+                         xlabel: str,
+                         ylabel: str,
+                         output_path: str,
+                         connect_points: bool = True):
+  """Utility to generate a scatterplot and save to file.
+
+  Arguments:
+      x: an array for x-values of each point
+      y: an array for y-values of each point
+      title: title of the scatterplot
+      xlabel: title of x axis of scatterplot
+      ylabel: title of y axis of scatterplot
+      output_path: file path to save the scatter plot to
+      connect_points: whether to conenct the points in the scatter
+       plot (default: True)
+  """
   fig = matplotlib.pyplot.figure()
   if connect_points:
     matplotlib.pyplot.plot(x, y, linestyle="solid")
