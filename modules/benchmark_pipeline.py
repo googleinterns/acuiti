@@ -32,7 +32,7 @@ class BenchmarkPipeline:
   def visualize_bounding_boxes(self,
                                output_name: str,
                                multi_instance_icon: bool = False,
-                               draw_contours: bool = False):
+                               draw_contours: bool = True):
     """Visualizes bounding box of icon in its source image.
 
     Draws the proposed bounding boxes in red, and the gold bounding
@@ -180,7 +180,8 @@ class BenchmarkPipeline:
       output_path: str = defaults.OUTPUT_PATH,
       icon_finder_object: icon_finder.IconFinder = defaults.FIND_ICON_OBJECT,
       multi_instance_icon: bool = False,
-      analysis_mode: bool = False) -> Tuple[CorrectnessMetrics, float, float]:
+      analysis_mode: bool = False,
+  ) -> Tuple[CorrectnessMetrics, float, float]:
     """Integrated pipeline for testing calculated bounding boxes.
 
     Compares calculated bounding boxes to ground truth,
@@ -229,7 +230,7 @@ class BenchmarkPipeline:
                                        "images/labelled-contours/")
       samples = []
       for clusters in self.image_clusters:
-        samples.extend(map(len(clusters)))
+        samples.extend(map(len, clusters))
       title = "Number of keypoints in image clusters"
       analysis_util.generate_histogram(np.array(samples), title, title,
                                        "keypoints-histogram.png")
