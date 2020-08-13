@@ -111,8 +111,8 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
     return np.array(nearby_contours), np.array(nearby_distances)
 
   def find_icons(
-      self, image: np.ndarray,
-      icon: np.ndarray) -> Tuple[List[BoundingBox], List[np.ndarray]]:
+      self, image: np.ndarray, icon: np.ndarray
+  ) -> Tuple[List[BoundingBox], List[np.ndarray], List[np.ndarray]]:
     """Find instances of icon in a given image via shape context descriptor.
 
     Arguments:
