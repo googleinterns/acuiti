@@ -22,6 +22,12 @@ class ConfusionMatrix:
     self.true_pos = true_pos
     self.true_neg = true_neg
 
+  def __add__(self, other):
+    return ConfusionMatrix(self.false_pos + other.false_pos,
+                           self.false_neg + other.false_neg,
+                           self.true_pos + other.true_pos,
+                           self.true_neg + other.true_neg)
+
   def calculate_correctness_metrics(self,
                                     output_path: str = defaults.OUTPUT_PATH
                                     ) -> CorrectnessMetrics:
@@ -54,5 +60,4 @@ class ConfusionMatrix:
     print("Accuracy: %f\n" % accuracy)
     print("Precision: %f\n" % precision)
     print("Recall: %f\n" % recall)
-    correctness_metrics = CorrectnessMetrics(accuracy, precision, recall)
-    return correctness_metrics
+    return CorrectnessMetrics(accuracy, precision, recall)

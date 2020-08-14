@@ -27,14 +27,18 @@ class BenchmarkPipeline:
   """
 
   def __init__(self, tfrecord_path: str = defaults.TFRECORD_PATH):
+    # ----------------- the below are loaded from tfrecord ------------------
     parsed_image_dataset = util.parse_image_dataset(tfrecord_path)
-    self.gold_boxes = util.parse_gold_boxes(parsed_image_dataset)
     self.image_list, self.icon_list = util.parse_images_and_icons(
-        parsed_image_dataset)
-    self.proposed_boxes = []
-    self.image_clusters = []
-    self.icon_contours = []
-    self.correctness_mask = []
+        parsed_image_dataset)  # image and template icon pairs
+    self.gold_boxes = util.parse_gold_boxes(
+        parsed_image_dataset)  # ground truth bounding boxes for each image
+
+    # ----------------------the below are set by algorithm --------------------
+    self.proposed_boxes = []  # proposed lists of bounding boxes for each image
+    self.image_clusters = []  # list of each image's contour clusters (analysis)
+    self.icon_contours = []  # list of each template icon's contours (analysis)
+    self.correctness_mask = []  # True if no false pos/neg for image (analysis)
 
   def visualize_bounding_boxes(self,
                                output_name: str,

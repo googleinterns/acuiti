@@ -98,106 +98,95 @@ def parse_images_and_icons(
   return image_list, icon_list
 
 
-def get_confusion_matrix(
-    iou_threshold: float, proposed_boxes: List[List[BoundingBox]],
-    gold_boxes: List[List[BoundingBox]]) -> Tuple[ConfusionMatrix, List[bool]]:
+def get_confusion_matrix(iou_threshold: float,
+                         proposed_box_list: List[BoundingBox],
+                         gold_box_list: List[BoundingBox]) -> ConfusionMatrix:
   """Count the number of true pos, true neg, false pos, false neg in proposed boxes.
+
+  Overview of algorithm: find the gold box ("match") that maximizes IOU for each
+  proposed box. If two proposed boxes match to the same gold box, use the higher
+  IOU one (the other proposed box is a false positive). If there are no gold
+  boxes available, each proposed box is a false positive. Then, for each match
+  where the IOU is above the IOU threshold, we have a true positive. Otherwise,
+  each match is counted as one false positive and one false negative.
+  Finally, if there are no gold boxes and no proposed boxes we have a true
+  negative.
 
   Arguments:
       iou_threshold: a proposed box that has an IOU with a gold box below this
        threshold is effectively a distinct and separate box.
-      proposed_boxes: a list of BoundingBox lists, one for each image,
-       as the proposed box.
-      gold_boxes: a list of BoundingBox lists, one for each image,
-       as the ground truth.
+      proposed_box_list: a list of BoundingBoxes proposed for an image
+      gold_box_list: a list of ground truth BoundingBoxes for the image
 
   Returns:
-      Tuple(ConfusionMatrix of false pos/neg and true pos/neg,
-       correctness_mask of bools corresponding to whether a particular
-       image had zero false positives or negatives
+      ConfusionMatrix of false pos/neg and true pos/neg
   """
   num_false_pos = 0  # fp
   num_false_neg = 0  # fn
   num_true_pos = 0  # tp
   num_true_neg = 0  # tn
-  correctness_mask = [False for i in range(len(gold_boxes))]
-  # for each image:
-  #   find the gold box ("match") that maximizes IOU for each proposed box
-  #     if two proposed boxes match to the same gold box, use the one with
-  #       the higher IOU (the other proposed box is a fp)
-  #     if there are no gold boxes, each proposed box is a fp
-  #   for each match where the IOU is above the IOU threshold, we have a tp
-  #     otherwise, the match is counted as one fp and one fn
-  #   each gold box that never got any matches is counted as a fn
-  #   if there were no gold boxes and no proposed boxes we have a tn
-  for i, (proposed_box_list,
-          gold_box_list) in enumerate(zip(proposed_boxes, gold_boxes)):
-    prev_false_pos = num_false_pos
-    prev_false_neg = num_false_neg
-    # mapping from gold boxes to the IOU of their best matching proposed box
-    # keys: index of gold box that maximizes the iou of a given proposed box
-    #   (not all gold box indices will necessarily be matched to a proposed box
-    #   and placed in the dict; len(matched...) = the number of gold boxes that
-    #   did such receive a match)
-    # values: corresponding iou between the proposed box and gold box
-    #   (if two proposed boxes 'match' to the same gold box,
-    #   lower iou proposed box is discarded)
-    matched_gold_index_to_proposed_iou = {}
-    num_proposed_box_without_match = 0
-    # for an image, match all the proposed boxes with the gold boxes
-    for proposed_box in proposed_box_list:
-      # find the index of the gold box that maximizes IOU w/a given proposed box
-      max_iou = -1
-      max_gold_box_index = -1
-      for gold_index, gold_box in enumerate(gold_box_list):
-        iou = proposed_box.calculate_iou(gold_box)
-        if iou > max_iou:
-          max_iou = iou
-          max_gold_box_index = gold_index
 
-      # check if there were no gold boxes to begin with
-      if max_gold_box_index == -1:
-        num_proposed_box_without_match += 1
+  # mapping from gold boxes to the IOU of their best matching proposed box
+  # keys: index of gold box that maximizes the iou of a given proposed box
+  #   (not all gold box indices will necessarily be matched to a proposed box
+  #   and placed in the dict; len(matched...) = the number of gold boxes that
+  #   did such receive a match)
+  # values: corresponding iou between the proposed box and gold box
+  #   (if two proposed boxes 'match' to the same gold box,
+  #   lower iou proposed box is discarded)
+  matched_gold_index_to_proposed_iou = {}
+  num_proposed_box_without_match = 0
+  for proposed_box in proposed_box_list:
+    # find the index of the gold box that maximizes IOU w/a given proposed box
+    max_iou = -1
+    max_gold_box_index = -1
+    for gold_index, gold_box in enumerate(gold_box_list):
+      iou = proposed_box.calculate_iou(gold_box)
+      if iou > max_iou:
+        max_iou = iou
+        max_gold_box_index = gold_index
 
-      # if the proposed box matched to a gold box that another
-      # proposed box already matched with, discard the one with lower IOU
-      # and update the IOU
-      elif max_gold_box_index in matched_gold_index_to_proposed_iou:
-        num_proposed_box_without_match += 1  # a proposed box is discarded
-        if matched_gold_index_to_proposed_iou[max_gold_box_index] < max_iou:
-          matched_gold_index_to_proposed_iou[max_gold_box_index] = max_iou
+    # check if there were no gold boxes to begin with
+    if max_gold_box_index == -1:
+      num_proposed_box_without_match += 1
 
-      # finally, if no other proposed box has matched to this gold box,
-      # place it in our dictionary along with the iou
-      else:
+    # if the proposed box matched to a gold box that another
+    # proposed box already matched with, discard the one with lower IOU
+    # and update the IOU
+    elif max_gold_box_index in matched_gold_index_to_proposed_iou:
+      num_proposed_box_without_match += 1  # a proposed box is discarded
+      if matched_gold_index_to_proposed_iou[max_gold_box_index] < max_iou:
         matched_gold_index_to_proposed_iou[max_gold_box_index] = max_iou
 
-    # true positives are matches that meet the IOU threhsold
-    current_true_pos = np.sum([
-        1 if iou >= iou_threshold else 0
-        for iou in matched_gold_index_to_proposed_iou.values()
-    ])
-    num_true_pos += current_true_pos
+    # finally, if no other proposed box has matched to this gold box,
+    # place it in our dictionary along with the iou
+    else:
+      matched_gold_index_to_proposed_iou[max_gold_box_index] = max_iou
 
-    # matches w/IOU below threshold: corresp. proposed boxes are false positives
-    num_false_pos += len(matched_gold_index_to_proposed_iou) - current_true_pos
-    # matches w/IOU below threshold: corresp. gold boxes are false negatives
-    num_false_neg += len(matched_gold_index_to_proposed_iou) - current_true_pos
+  # true positives are matches that meet the IOU threhsold
+  current_true_pos = np.sum([
+      1 if iou >= iou_threshold else 0
+      for iou in matched_gold_index_to_proposed_iou.values()
+  ])
+  num_true_pos += current_true_pos
 
-    # proposed boxes that didn't get matched to a gold box, because none exists,
-    # or another proposed box matched to the gold box with a higher IOU,
-    # are false positives
-    num_false_pos += num_proposed_box_without_match
+  # matches w/IOU below threshold: corresp. proposed boxes are false positives
+  num_false_pos += len(matched_gold_index_to_proposed_iou) - current_true_pos
+  # matches w/IOU below threshold: corresp. gold boxes are false negatives
+  num_false_neg += len(matched_gold_index_to_proposed_iou) - current_true_pos
 
-    # gold boxes that were not matched at all are false negatives
-    num_false_neg += len(gold_box_list) - len(
-        matched_gold_index_to_proposed_iou)
-    if not proposed_box_list and not gold_box_list:
-      num_true_neg += 1  # correctly identified that icon didn't appear in image
-    correctness_mask[
-        i] = num_false_neg - prev_false_neg + num_false_pos - prev_false_pos == 0
+  # proposed boxes that didn't get matched to a gold box, because none exists,
+  # or another proposed box matched to the gold box with a higher IOU,
+  # are false positives
+  num_false_pos += num_proposed_box_without_match
+
+  # gold boxes that were not matched at all are false negatives
+  num_false_neg += len(gold_box_list) - len(matched_gold_index_to_proposed_iou)
+  if not proposed_box_list and not gold_box_list:
+    num_true_neg += 1  # correctly identified that icon didn't appear in image
+
   return ConfusionMatrix(num_false_pos, num_false_neg, num_true_pos,
-                         num_true_neg), correctness_mask
+                         num_true_neg)
 
 
 def evaluate_proposed_bounding_boxes(
@@ -222,9 +211,16 @@ def evaluate_proposed_bounding_boxes(
       Tuple(CorrectnessMetrics, correctness mask corresponding
        to whether we had zero false pos/neg for each image)
   """
-  confusion_matrix, correctness_mask = get_confusion_matrix(
-      iou_threshold, proposed_boxes, gold_boxes)
-  correctness_metrics = confusion_matrix.calculate_correctness_metrics(
+  total_confusion_matrix = ConfusionMatrix(0, 0, 0, 0)
+  correctness_mask = [False] * len(gold_boxes)
+  for i, (proposed_box_list,
+          gold_box_list) in enumerate(zip(proposed_boxes, gold_boxes)):
+    confusion_matrix = get_confusion_matrix(iou_threshold, proposed_box_list,
+                                            gold_box_list)
+    correctness_mask[i] = (confusion_matrix.false_pos +
+                           confusion_matrix.false_neg == 0)
+    total_confusion_matrix += confusion_matrix
+  correctness_metrics = total_confusion_matrix.calculate_correctness_metrics(
       output_path)
   return correctness_metrics, correctness_mask
 

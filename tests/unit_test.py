@@ -79,14 +79,14 @@ correctness_evaluation_tests = [
 #   values were correct, but not the intermediate confusion matrix values
 #   ((false positive, false negative), (true positive, true negative))
 confusion_matrix_tests = [
-    (1, _BOX_LIST_1, _BOX_LIST_2, (ConfusionMatrix(0, 0, 4, 0), [1, 1])),
-    (1, _BOX_LIST_1, _BOX_LIST_3, (ConfusionMatrix(2, 0, 2, 0), [0, 0])),
-    (1, _BOX_LIST_3, _BOX_LIST_1, (ConfusionMatrix(0, 2, 2, 0), [0, 0])),
-    (1, [[]], [[]], (ConfusionMatrix(0, 0, 0, 1), [1])),
-    (1, [[], []], _BOX_LIST_3, (ConfusionMatrix(0, 2, 0, 0), [0, 0])),
-    (1, _BOX_LIST_3, [[], []], (ConfusionMatrix(2, 0, 0, 0), [0, 0])),
-    (2 / 6, _BOX_LIST_4, _BOX_LIST_5, (ConfusionMatrix(0, 0, 2, 0), [1, 1])),
-    (1, _BOX_LIST_3, _BOX_LIST_5, (ConfusionMatrix(2, 2, 0, 0), [0, 0]))
+    (1, [_BOX_A, _BOX_B], [_BOX_B, _BOX_A], (ConfusionMatrix(0, 0, 2, 0))),
+    (1, [_BOX_A, _BOX_B], [_BOX_A], (ConfusionMatrix(1, 0, 1, 0))),
+    (1, [_BOX_A], [_BOX_A, _BOX_B], (ConfusionMatrix(0, 1, 1, 0))),
+    (1, [], [], (ConfusionMatrix(0, 0, 0, 1))),
+    (1, [], [_BOX_A], (ConfusionMatrix(0, 1, 0, 0))),
+    (1, [_BOX_A], [], (ConfusionMatrix(1, 0, 0, 0))),
+    (2 / 6, [_BOX_E], [_BOX_G], (ConfusionMatrix(0, 0, 1, 0))),
+    (1, [_BOX_A], [_BOX_G], (ConfusionMatrix(1, 1, 0, 0)))
 ]
 
 

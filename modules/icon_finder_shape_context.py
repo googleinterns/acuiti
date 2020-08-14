@@ -122,7 +122,8 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
     Returns:
         Tuple(list of Bounding Box for each instance of icon in image,
         list of clusters of contours detected in the image to visually evaluate
-        how well contour clustering worked)
+        how well contour clustering worked, list of booleans representing
+        whether each image had zero false positives and false negatives)
     """
     # get icon keypoints and nonkeypoints (using all points will hurt accuracy)
     icon_contour_keypoints = np.vstack(
