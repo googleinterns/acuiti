@@ -50,7 +50,7 @@ def dbscan_clustering_optimizer(eps_values: List[float],
   analysis_util.generate_scatterplot(
       eps_values,
       recall_eps,
-      "Effect of eps on recall (Min sample = best of " + " ".join(min_samples),
+      "Effect of eps on recall (Min sample = best of " + " ".join(min_samples),  # pytype: disable=wrong-arg-types
       "Epsilon Value",
       "Recall",
       "best-epsilon-recall.png",
