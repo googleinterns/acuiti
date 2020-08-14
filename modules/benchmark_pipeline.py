@@ -208,9 +208,9 @@ class BenchmarkPipeline:
         Tuple(CorrectnessMetrics, avg runtime, avg memory of
          the bounding box detection process.)
     """
-    assert issubclass(
-        type(icon_finder_object), icon_finder.IconFinder
-    ), "Icon-finding object passed in must be a subclass of IconFinder"
+    assert isinstance(
+        icon_finder_object, icon_finder.IconFinder
+    ), "Icon-finding object passed in must be an instance of IconFinder"
     icon_finder_option = type(icon_finder_object).__name__
     avg_runtime_secs, avg_memory_mbs = self.find_icons(icon_finder_object,
                                                        output_path, True, True)

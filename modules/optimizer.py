@@ -39,25 +39,28 @@ def dbscan_clustering_optimizer(eps_values: List[float],
           icon_finder_object=icon_finder)
       recall_min_samples.append(correctness.recall)
     analysis_util.generate_scatterplot(
-        min_samples,
-        recall_min_samples,
-        "Effect of min samples on recall (Eps = %d)" % eps,
-        "Min samples",
-        "Recall",
-        "min-samples-%d.png" % eps,
+        x=min_samples,
+        y=recall_min_samples,
+        title="Effect of min samples on recall (Eps = %d)" % eps,
+        xlabel="Min samples",
+        ylabel="Recall",
+        output_path="min-samples-%d.png" % eps,
         connect_points=False)
     recall_eps.append(np.max(np.array(min_samples)))
   analysis_util.generate_scatterplot(
-      eps_values,
-      recall_eps,
-      "Effect of eps on recall (Min sample = best of " + " ".join(min_samples),  # pytype: disable=wrong-arg-types
-      "Epsilon Value",
-      "Recall",
-      "best-epsilon-recall.png",
+      x=eps_values,
+      y=recall_eps,
+      title="Effect of eps on recall (Min sample = best of " +
+      " ".join(min_samples),  # pytype: disable=wrong-arg-types
+      xlabel="Epsilon Value",
+      ylabel="Recall",
+      output_path="best-epsilon-recall.png",
       connect_points=False)
 
 
 if __name__ == "__main__":
-  dbscan_clustering_optimizer([7.5, 7.6, 7.7, 7.8], [2, 3, 4, 5],
-                              "datasets/large_single_instance_v2.tfrecord",
-                              False)
+  dbscan_clustering_optimizer(
+      eps_values=[7.5, 7.6, 7.7, 7.8],
+      min_samples=[2, 3, 4, 5],
+      tfrecord_path="datasets/large_single_instance_v2.tfrecord",
+      multi_instance_icon=False)
