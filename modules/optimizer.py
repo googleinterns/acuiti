@@ -51,7 +51,7 @@ def dbscan_clustering_optimizer(eps_values: List[float],
       x=eps_values,
       y=recall_eps,
       title="Effect of eps on recall (Min sample = best of " +
-      " ".join(min_samples),  # pytype: disable=wrong-arg-types
+      " ".join(map(str, min_samples)),
       xlabel="Epsilon Value",
       ylabel="Recall",
       output_path="best-epsilon-recall.png",
