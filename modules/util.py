@@ -1,4 +1,4 @@
-"""Contains utility classes and modules.
+"""Contains utility classes and modules, generally for the benchmark pipeline.
 
 Utilites include:
 - image processing utility functions

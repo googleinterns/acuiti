@@ -1,4 +1,14 @@
-"""This file contains utility functions for find icon computer vision algorithms."""
+"""This file contains utility functions for find icon computer vision algorithms.
+
+The algorithms here generally correspond to what is used in icon_finders:
+- Shape context distance
+- Contour Detection
+- Contour Clustering
+- Pointset Resizing
+- Contours to Bounding Boxes
+- Distance thresholding
+- Suppress overlapping bounding boxes
+"""
 from typing import List, Tuple
 
 import cv2
@@ -255,3 +265,51 @@ def suppress_overlapping_bounding_boxes(
   indices = cv2.dnn.NMSBoxes(rects, confidences, confidence_threshold,
                              iou_threshold)
   return [bboxes[i[0]] for i in indices]
+
+
+def standardize_bounding_boxes_padding(
+    proposed_boxes_unpadded: List[BoundingBox], icon_box_unpadded: BoundingBox,
+    icon: np.ndarray, image: np.ndarray) -> List[BoundingBox]:
+  """Add padding onto proposed bounding boxes according to the original icon's.
+
+  Use the original template icon's padding ratio to add a padding around the
+  proposed bounding boxes, essentially making each of them larger. We assume
+  that the input template icon is centered in its background.
+
+  Arguments:
+      proposed_boxes_unpadded: list of proposed BoundingBoxes, without padding
+      icon_box_unpadded: the unpadded bounding box of the template icon
+       found in its original background via contouring
+      icon: the original template icon, from which the icon_box_unpadded
+       is found through contouring
+      image: the UI image
+
+  Returns:
+      List[BoundingBox] -- [description]
+  """
+  icon_height = icon.shape[0]
+  icon_width = icon.shape[1]
+  icon_box_height = icon_box_unpadded.max_y - icon_box_unpadded.min_y + 1
+  icon_box_width = icon_box_unpadded.max_x - icon_box_unpadded.min_x + 1
+  icon_vertical_padding = max(0, (icon_height - icon_box_height) /
+                              2)  # for both top and bottom
+  icon_vertical_padding_ratio = icon_vertical_padding / icon_box_height
+  icon_horizontal_padding = max(0, (icon_width - icon_box_width) /
+                                2)  # for both left and right
+  icon_horizontal_padding_ratio = icon_horizontal_padding / icon_box_width
+
+  proposed_boxes_padded = []
+  image_height = image.shape[0]
+  image_width = image.shape[1]
+  for bbox in proposed_boxes_unpadded:
+    bbox_width = bbox.max_x - bbox.min_x + 1
+    bbox_height = bbox.max_y - bbox.min_y + 1
+    bbox_horizontal_padding = int(bbox_width * icon_horizontal_padding_ratio)
+    bbox_vertical_padding = int(bbox_height * icon_vertical_padding_ratio)
+    padded_max_x = min(image_width - 1, bbox.max_x + bbox_horizontal_padding)
+    padded_min_x = max(0, bbox.min_x - bbox_horizontal_padding)
+    padded_max_y = min(image_height - 1, bbox.max_y + bbox_vertical_padding)
+    padded_min_y = max(0, bbox.min_y - bbox_vertical_padding)
+    proposed_boxes_padded.append(
+        BoundingBox(padded_min_x, padded_min_y, padded_max_x, padded_max_y))
+  return proposed_boxes_padded
