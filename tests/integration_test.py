@@ -7,7 +7,8 @@ import modules.benchmark_pipeline
 # -------------------------------------------------------------------------
 def test_benchmark():
   find_icon_benchmark = modules.benchmark_pipeline.BenchmarkPipeline()
-  correctness, avg_time_secs, avg_memory_mibs = find_icon_benchmark.evaluate()
+  correctness, avg_time_secs, avg_memory_mibs = find_icon_benchmark.evaluate(
+      icon_finder_object=icon_finder_shape_context.IconFinderShapeContext())
   assert avg_memory_mibs <= 1000
   assert avg_time_secs <= 60
   assert correctness.accuracy >= 0

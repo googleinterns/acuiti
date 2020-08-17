@@ -1,7 +1,7 @@
 """BenchmarkPipeline class and tfRecord utility functions."""
 
 import argparse
-from typing import Tuple
+from typing import Any, Tuple
 
 import cv2
 import matplotlib.pyplot
@@ -89,7 +89,8 @@ class BenchmarkPipeline:
 
     The average time per image is via processing all the images and icons in
     the dataset. It optionally also prints this information to a file
-    given by output_path.
+    given by output_path. It will also record the results of the icon finder
+    algorithm if no other method has done so yet.
 
     Arguments:
         icon_finder_object: IconFinder object that implements an
@@ -100,13 +101,21 @@ class BenchmarkPipeline:
     Returns:
         float -- Average time in seconds that icon_finder took per image.
     """
+    record_results = True
+    if self.proposed_boxes:
+      record_results = False
+
     times = []
     for image, icon in zip(self.image_list, self.icon_list):
       timer = util.LatencyTimer()  # pytype: disable=module-attr
       timer.start()
-      _, _ = icon_finder_object.find_icons(image, icon)
+      bboxes, image_contour_clusters = icon_finder_object.find_icons(
+          image, icon)
       timer.stop()
-      times.append(timer.calculate_info(output_path))
+      if record_results:
+        self.proposed_boxes.append(bboxes)
+        self.image_clusters.append(image_contour_clusters)
+      times.append(timer.calculate_latency_info(output_path))
     print("Average time per image: %f" % np.mean(times))
     return np.mean(times)
 
@@ -115,7 +124,8 @@ class BenchmarkPipeline:
 
     The average memory is via processing all the images and icons in
     the dataset. It optionally also prints this information to a file
-    given by output_path.
+    given by output_path. It will also record results of the icon finder
+    if no other method has recorded it yet.
 
     Arguments:
         icon_finder_object: IconFinder object that implements an
@@ -126,12 +136,19 @@ class BenchmarkPipeline:
     Returns:
         float -- average memory in MiBs that icon_finder used per image.
     """
+    record_results = True
+    if self.proposed_boxes:
+      record_results = False
+
     mems = []
     for image, icon in zip(self.image_list, self.icon_list):
       memtracker = util.MemoryTracker()  # pytype: disable=module-attr
-      memtracker.run_and_track_memory(
+      bboxes, image_contour_clusters = memtracker.run_and_track_memory(
           (icon_finder_object.find_icons, (image, icon)))
-      mems.append(memtracker.calculate_info(output_path))
+      mems.append(memtracker.calculate_memory_info(output_path))
+      if record_results:
+        self.proposed_boxes.append(bboxes)
+        self.image_clusters.append(image_contour_clusters)
     print("Average MiBs per image: %f" % np.mean(mems))
     return np.mean(mems)
 
@@ -140,8 +157,14 @@ class BenchmarkPipeline:
       icon_finder_object: icon_finder.IconFinder = defaults.FIND_ICON_OBJECT,
       output_path: str = defaults.OUTPUT_PATH,
       calc_latency: bool = True,
-      calc_memory: bool = True) -> Tuple[float, float]:
-    """Runs an icon-finding algorithm under timed and memory-tracking conditions.
+      calc_memory: bool = True) -> Tuple[Any, Any]:
+    """Runs an icon-finding algorithm, possibly under timed and memory-tracking conditions.
+
+    This function will ensure that the results of the icon-finding algorithm are
+    recorded, either when run under timed or memory-tracking conditions, or in
+    an additional iteration if neither of those have been selected. Hence, the
+    maximum number of times the algorithm is run is 2 (both time and memory
+    conditions selected).
 
     Arguments:
         icon_finder_object: IconFinder object that implements an
@@ -150,27 +173,36 @@ class BenchmarkPipeline:
         output_path: Filename for writing time and memory info to
          (default: {defaults.OUTPUT_PATH})
         calc_latency: Whether to run algorithm under latency-profiling
-         conditions (default: True)
+         conditions. If calc_memory is True, setting calc_latency to True
+         will run the algorithm an additional iteration just to calculate
+         the latency information. Otherwise, the algorithm is just run once,
+         recording latency information if this flag is True.
+         (default: True)
         calc_memory: Whether to run algorithm under memory-profiling
-         conditions (default: True)
+         conditions. If calc_latency is True, setting calc_memory to True
+         will run the algorithm an additional iteration just to calculate
+         the memory information. Otherwise, the algorithm is just run once,
+         recording memory information if this flag is True. (default: True)
 
     Returns:
-        (total time, total memory) used for find icon process
-         or -1 for each value if its corresponding boolean flag
+        (total time, total memory) used for find icon process (floats)
+         or None for each value if its corresponding boolean flag
          was passed in as False
     """
-    for image, icon in zip(self.image_list, self.icon_list):
-      bboxes, image_contour_clusters = icon_finder_object.find_icons(
-          image, icon)
-      self.proposed_boxes.append(bboxes)
-      self.image_clusters.append(image_contour_clusters)
-
-    latency = -1
-    memory = -1
+    latency = None
+    memory = None
     if calc_latency:
       latency = self.calculate_latency(icon_finder_object, output_path)
     if calc_memory:
       memory = self.calculate_memory(icon_finder_object, output_path)
+
+    # latency and memory were not run and didn't generate results
+    if not self.proposed_boxes:
+      for image, icon in zip(self.image_list, self.icon_list):
+        bboxes, image_contour_clusters = icon_finder_object.find_icons(
+            image, icon)
+        self.proposed_boxes.append(bboxes)
+        self.image_clusters.append(image_contour_clusters)
     return latency, memory
 
   def evaluate(
