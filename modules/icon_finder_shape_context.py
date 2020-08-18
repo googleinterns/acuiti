@@ -15,8 +15,8 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
 
   def __init__(self,
                desired_confidence: float = 0.5,
-               dbscan_eps: float = 10,
-               dbscan_min_neighbors: int = 5,
+               dbscan_eps: float = 7.5,
+               dbscan_min_neighbors: int = 2,
                sc_min_num_points: int = 90,
                sc_max_num_points: int = 90,
                sc_distance_threshold: float = 1,

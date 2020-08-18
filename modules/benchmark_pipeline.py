@@ -231,6 +231,10 @@ class BenchmarkPipeline:
         Tuple(CorrectnessMetrics, avg runtime, avg memory of
          the bounding box detection process.)
     """
+    if analysis_mode:
+      self.image_list, self.gold_boxes = analysis_util.scale_images_and_bboxes(
+          self.image_list, self.gold_boxes, 5, 5)
+
     avg_runtime_secs, avg_memory_mbs = self.find_icons(find_icon_option,
                                                        output_path,
                                                        desired_confidence)
