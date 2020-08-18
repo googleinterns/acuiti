@@ -7,7 +7,7 @@ This contains:
 from typing import List
 
 import cv2
-import matplotlib.pyplot
+import matplotlib.pyplot as plt
 import numpy as np
 
 
@@ -32,13 +32,11 @@ def label_cluster_size(image_clusters: List[np.ndarray],
       bottom_left = (x, y)
       text = str(len(contour))
       cv2.putText(image, text, bottom_left, font, font_scale, color, thickness)
-    matplotlib.pyplot.imshow(image)
-    matplotlib.pyplot.imsave("%s-%d.png" % (output_path, index), image)
+    plt.imshow(image)
+    plt.imsave("%s-%d.png" % (output_path, index), image)
 
 
-def generate_histogram(samples: np.ndarray,
-                       title: str,
-                       xlabel: str,
+def generate_histogram(samples: np.ndarray, title: str, xlabel: str,
                        output_path: str):
   """Generate a histogram based off of samples.
 
@@ -51,10 +49,41 @@ def generate_histogram(samples: np.ndarray,
       output_path: file path for resulting histogram plot to be saved at
   """
   counts = samples.flatten()
-  fig = matplotlib.pyplot.figure()
-  matplotlib.pyplot.hist(counts)
-  matplotlib.pyplot.title(title)
-  matplotlib.pyplot.xlabel("%s. Median: %f" % (xlabel, np.median(counts)))
-  matplotlib.pyplot.ylabel("Frequency")
-  matplotlib.pyplot.savefig(output_path)
-  matplotlib.pyplot.close(fig=fig)
+  fig = plt.figure()
+  plt.hist(counts)
+  plt.title(title)
+  plt.xlabel("%s. Median: %f" % (xlabel, np.median(counts)))
+  plt.ylabel("Frequency")
+  plt.savefig(output_path)
+  plt.close(fig=fig)
+
+
+def generate_scatterplot(x: np.ndarray,
+                         y: np.ndarray,
+                         title: str,
+                         xlabel: str,
+                         ylabel: str,
+                         output_path: str,
+                         connect_points: bool = True):
+  """Utility to generate a scatterplot and save to file.
+
+  Arguments:
+      x: an array for x-values of each point
+      y: an array for y-values of each point
+      title: title of the scatterplot
+      xlabel: title of x axis of scatterplot
+      ylabel: title of y axis of scatterplot
+      output_path: file path to save the scatter plot to
+      connect_points: whether to conenct the points in the scatter
+       plot (default: True)
+  """
+  fig = plt.figure()
+  if connect_points:
+    plt.plot(x, y, linestyle="solid")
+  else:
+    plt.scatter(x, y)
+  plt.title(title)
+  plt.xlabel(xlabel)
+  plt.ylabel(ylabel)
+  plt.savefig(output_path)
+  plt.close(fig=fig)
