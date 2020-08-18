@@ -38,6 +38,7 @@ def dbscan_clustering_optimizer(eps_values: List[float],
           multi_instance_icon=multi_instance_icon,
           icon_finder_object=icon_finder)
       recall_min_samples.append(correctness.recall)
+    recall_eps.append(np.max(np.array(min_samples)))
     analysis_util.generate_scatterplot(
         x=min_samples,
         y=recall_min_samples,
@@ -46,7 +47,6 @@ def dbscan_clustering_optimizer(eps_values: List[float],
         ylabel="Recall",
         output_path="min-samples-%d.png" % eps,
         connect_points=False)
-    recall_eps.append(np.max(np.array(min_samples)))
   analysis_util.generate_scatterplot(
       x=eps_values,
       y=recall_eps,

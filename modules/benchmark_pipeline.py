@@ -1,7 +1,7 @@
 """BenchmarkPipeline class and tfRecord utility functions."""
 
 import argparse
-from typing import Any, Tuple
+from typing import Tuple
 
 import cv2
 import matplotlib.pyplot
@@ -10,6 +10,7 @@ from modules import defaults
 from modules import icon_finder
 from modules import util
 from modules.correctness_metrics import CorrectnessMetrics
+from modules.types import OptionalFloat
 import numpy as np
 
 
@@ -157,7 +158,7 @@ class BenchmarkPipeline:
       icon_finder_object: icon_finder.IconFinder = defaults.FIND_ICON_OBJECT,
       output_path: str = defaults.OUTPUT_PATH,
       calc_latency: bool = True,
-      calc_memory: bool = True) -> Tuple[Any, Any]:
+      calc_memory: bool = True) -> Tuple[OptionalFloat, OptionalFloat]:
     """Runs an icon-finding algorithm, possibly under timed and memory-tracking conditions.
 
     This function will ensure that the results of the icon-finding algorithm are
@@ -213,7 +214,7 @@ class BenchmarkPipeline:
       icon_finder_object: icon_finder.IconFinder = defaults.FIND_ICON_OBJECT,
       multi_instance_icon: bool = False,
       analysis_mode: bool = False,
-  ) -> Tuple[CorrectnessMetrics, float, float]:
+  ) -> Tuple[CorrectnessMetrics, OptionalFloat, OptionalFloat]:
     """Integrated pipeline for testing calculated bounding boxes.
 
     Compares calculated bounding boxes to ground truth,
