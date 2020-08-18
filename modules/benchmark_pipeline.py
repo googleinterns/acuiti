@@ -4,7 +4,6 @@ import argparse
 from typing import Tuple
 
 import cv2
-import matplotlib.pyplot
 from modules import analysis_util
 from modules import defaults
 from modules import icon_finder
@@ -23,17 +22,24 @@ class BenchmarkPipeline:
   """
 
   def __init__(self, tfrecord_path: str = defaults.TFRECORD_PATH):
+    # ----------------- the below are loaded from tfrecord ------------------
     parsed_image_dataset = util.parse_image_dataset(tfrecord_path)
-    self.gold_boxes = util.parse_gold_boxes(parsed_image_dataset)
     self.image_list, self.icon_list = util.parse_images_and_icons(
-        parsed_image_dataset)
-    self.proposed_boxes = []
-    self.image_clusters = []
+        parsed_image_dataset)  # image and template icon pairs
+    self.gold_boxes = util.parse_gold_boxes(
+        parsed_image_dataset)  # ground truth bounding boxes for each image
+
+    # ----------------------the below are set by algorithm --------------------
+    self.proposed_boxes = []  # proposed lists of bounding boxes for each image
+    self.image_clusters = []  # list of each image's contour clusters (analysis)
+    self.icon_contours = []  # list of each template icon's contours (analysis)
+    self.correctness_mask = []  # True if no false pos/neg for image (analysis)
 
   def visualize_bounding_boxes(self,
                                output_name: str,
                                multi_instance_icon: bool = False,
-                               draw_contours: bool = True):
+                               draw_contours: bool = False,
+                               only_save_failed: bool = False):
     """Visualizes bounding box of icon in its source image.
 
     Draws the proposed bounding boxes in red, and the gold bounding
@@ -45,11 +51,15 @@ class BenchmarkPipeline:
         multi_instance_icon: whether to visualize all bounding boxes
           or just the first
         draw_contours: whether to draw the contour clusters in the image
+        only_save_failed: whether to save only the images that contain
+         at least one false positive or false negative
     """
-    for i, image_bgr in enumerate(self.image_list):
+    for i, (image_bgr,
+            icon_bgr) in enumerate(zip(self.image_list, self.icon_list)):
       gold_box_list = self.gold_boxes[i]
       proposed_box_list = self.proposed_boxes[i]
       image_bgr_copy = image_bgr.copy()
+      icon_bgr_copy = icon_bgr.copy()
 
       # consider only the first returned icon for single-instance case
       if not multi_instance_icon:
@@ -59,17 +69,20 @@ class BenchmarkPipeline:
         gold_box_list = gold_box_list[0:1]
         proposed_box_list = proposed_box_list[0:1]
 
+      if only_save_failed and self.correctness_mask[i]:
+        continue
+
       # draw the gold boxes in green
       for box in gold_box_list:
         # top left and bottom right corner of rectangle
         cv2.rectangle(image_bgr_copy, (box.min_x, box.min_y),
-                      (box.max_x, box.max_y), (0, 255, 0), 3)
+                      (box.max_x, box.max_y), (0, 255, 0), 2)
 
       # draw the proposed boxes in red
       for box in proposed_box_list:
         # top left and bottom right corner of rectangle
         cv2.rectangle(image_bgr_copy, (box.min_x, box.min_y),
-                      (box.max_x, box.max_y), (0, 0, 255), 3)
+                      (box.max_x, box.max_y), (0, 0, 255), 2)
 
       if draw_contours:
         # draw each contour cluster in the image with a distinct color
@@ -78,12 +91,15 @@ class BenchmarkPipeline:
         for j in range(0, len(self.image_clusters[i])):
           color = colors[j % len(colors)]
           cv2.drawContours(image_bgr_copy, self.image_clusters[i], j, color, 1)
+        cv2.drawContours(icon_bgr_copy, [self.icon_contours[i]], -1,
+                         (128, 0, 128), 1)
       image_rgb = cv2.cvtColor(image_bgr_copy, cv2.COLOR_BGR2RGB)
-
+      icon_rgb = cv2.cvtColor(icon_bgr_copy, cv2.COLOR_BGR2RGB)
       if image_rgb is None:
         print("Could not read the image.")
-      matplotlib.pyplot.imshow(image_rgb)
-      matplotlib.pyplot.imsave(output_name + str(i) + ".png", image_rgb)
+
+      analysis_util.save_icon_with_image(icon_rgb, image_rgb,
+                                         output_name + str(i) + ".png")
 
   def calculate_latency(self, icon_finder_object, output_path: str) -> float:
     """Uses LatencyTimer to calculate average time taken by icon_finder.
@@ -110,12 +126,13 @@ class BenchmarkPipeline:
     for image, icon in zip(self.image_list, self.icon_list):
       timer = util.LatencyTimer()  # pytype: disable=module-attr
       timer.start()
-      bboxes, image_contour_clusters = icon_finder_object.find_icons(
+      bboxes, image_contour_clusters, icon_contour = icon_finder_object.find_icons(
           image, icon)
       timer.stop()
       if record_results:
         self.proposed_boxes.append(bboxes)
         self.image_clusters.append(image_contour_clusters)
+        self.icon_contours.append(icon_contour)
       times.append(timer.calculate_latency_info(output_path))
     print("Average time per image: %f" % np.mean(times))
     return np.mean(times)
@@ -144,12 +161,13 @@ class BenchmarkPipeline:
     mems = []
     for image, icon in zip(self.image_list, self.icon_list):
       memtracker = util.MemoryTracker()  # pytype: disable=module-attr
-      bboxes, image_contour_clusters = memtracker.run_and_track_memory(
+      bboxes, image_contour_clusters, icon_contour = memtracker.run_and_track_memory(
           (icon_finder_object.find_icons, (image, icon)))
       mems.append(memtracker.calculate_memory_info(output_path))
       if record_results:
         self.proposed_boxes.append(bboxes)
         self.image_clusters.append(image_contour_clusters)
+        self.icon_contours.append(icon_contour)
     print("Average MiBs per image: %f" % np.mean(mems))
     return np.mean(mems)
 
@@ -252,13 +270,20 @@ class BenchmarkPipeline:
                                     icon_finder_option + "-visualized",
                                     multi_instance_icon=multi_instance_icon)
     if multi_instance_icon:
-      correctness = util.evaluate_proposed_bounding_boxes(
+      correctness, self.correctness_mask = util.evaluate_proposed_bounding_boxes(
           iou_threshold, self.proposed_boxes, self.gold_boxes, output_path)
     else:
-      correctness = util.evaluate_proposed_bounding_boxes(
+      correctness, self.correctness_mask = util.evaluate_proposed_bounding_boxes(
           iou_threshold, [[boxes[0]] for boxes in self.proposed_boxes],
           [[boxes[0]] for boxes in self.gold_boxes], output_path)
+
     if analysis_mode:
+      self.visualize_bounding_boxes("images/" + icon_finder_option +
+                                    "-failed/" + icon_finder_option +
+                                    "-visualized",
+                                    multi_instance_icon=multi_instance_icon,
+                                    draw_contours=True,
+                                    only_save_failed=True)
       analysis_util.label_cluster_size(self.image_clusters, self.image_list,
                                        "images/labelled-contours/")
       samples = []

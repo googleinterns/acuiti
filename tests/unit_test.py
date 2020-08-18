@@ -1,6 +1,7 @@
 from modules import algorithms
 from modules import util
 from modules.bounding_box import BoundingBox
+from modules.confusion_matrix import ConfusionMatrix
 from modules.correctness_metrics import CorrectnessMetrics
 import numpy as np
 import pytest
@@ -62,14 +63,14 @@ _BOX_LIST_5 = [[_BOX_G], [_BOX_G]]
 
 # test the final accuracy, precision, and recall values
 correctness_evaluation_tests = [
-    (1, _BOX_LIST_1, _BOX_LIST_2, CorrectnessMetrics(1, 1, 1)),
-    (1, _BOX_LIST_1, _BOX_LIST_3, CorrectnessMetrics(0.5, 0.5, 1)),
-    (1, _BOX_LIST_3, _BOX_LIST_1, CorrectnessMetrics(0.5, 1, 0.5)),
-    (1, [[]], [[]], CorrectnessMetrics(1, 1, 1)),
-    (1, [[], []], _BOX_LIST_3, CorrectnessMetrics(0, 1, 0)),
-    (1, _BOX_LIST_3, [[], []], CorrectnessMetrics(0, 0, 1)),
-    (2 / 6, _BOX_LIST_4, _BOX_LIST_5, CorrectnessMetrics(1, 1, 1)),
-    (1, _BOX_LIST_3, _BOX_LIST_5, CorrectnessMetrics(0, 0, 0))
+    (1, _BOX_LIST_1, _BOX_LIST_2, (CorrectnessMetrics(1, 1, 1), [1, 1])),
+    (1, _BOX_LIST_1, _BOX_LIST_3, (CorrectnessMetrics(0.5, 0.5, 1), [0, 0])),
+    (1, _BOX_LIST_3, _BOX_LIST_1, (CorrectnessMetrics(0.5, 1, 0.5), [0, 0])),
+    (1, [[]], [[]], (CorrectnessMetrics(1, 1, 1), [1])),
+    (1, [[], []], _BOX_LIST_3, (CorrectnessMetrics(0, 1, 0), [0, 0])),
+    (1, _BOX_LIST_3, [[], []], (CorrectnessMetrics(0, 0, 1), [0, 0])),
+    (2 / 6, _BOX_LIST_4, _BOX_LIST_5, (CorrectnessMetrics(1, 1, 1), [1, 1])),
+    (1, _BOX_LIST_3, _BOX_LIST_5, (CorrectnessMetrics(0, 0, 0), [0, 0]))
 ]
 
 # explicitly test the intermediate confusion matrix values
@@ -77,14 +78,16 @@ correctness_evaluation_tests = [
 #   boxes but nonzero proposed boxes, and the final accuracy/precison/recall
 #   values were correct, but not the intermediate confusion matrix values
 #   ((false positive, false negative), (true positive, true negative))
-confusion_matrix_tests = [(1, _BOX_LIST_1, _BOX_LIST_2, ((0, 0), (4, 0))),
-                          (1, _BOX_LIST_1, _BOX_LIST_3, ((2, 0), (2, 0))),
-                          (1, _BOX_LIST_3, _BOX_LIST_1, ((0, 2), (2, 0))),
-                          (1, [[]], [[]], ((0, 0), (0, 1))),
-                          (1, [[], []], _BOX_LIST_3, ((0, 2), (0, 0))),
-                          (1, _BOX_LIST_3, [[], []], ((2, 0), (0, 0))),
-                          (2 / 6, _BOX_LIST_4, _BOX_LIST_5, ((0, 0), (2, 0))),
-                          (1, _BOX_LIST_3, _BOX_LIST_5, ((2, 2), (0, 0)))]
+confusion_matrix_tests = [
+    (1, [_BOX_A, _BOX_B], [_BOX_B, _BOX_A], (ConfusionMatrix(0, 0, 2, 0))),
+    (1, [_BOX_A, _BOX_B], [_BOX_A], (ConfusionMatrix(1, 0, 1, 0))),
+    (1, [_BOX_A], [_BOX_A, _BOX_B], (ConfusionMatrix(0, 1, 1, 0))),
+    (1, [], [], (ConfusionMatrix(0, 0, 0, 1))),
+    (1, [], [_BOX_A], (ConfusionMatrix(0, 1, 0, 0))),
+    (1, [_BOX_A], [], (ConfusionMatrix(1, 0, 0, 0))),
+    (2 / 6, [_BOX_E], [_BOX_G], (ConfusionMatrix(0, 0, 1, 0))),
+    (1, [_BOX_A], [_BOX_G], (ConfusionMatrix(1, 1, 0, 0)))
+]
 
 
 # "expected": CorrectnessMetrics dataclass object (accuracy, precision, recall)

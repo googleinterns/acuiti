@@ -111,8 +111,8 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
     return np.array(nearby_contours), np.array(nearby_distances)
 
   def find_icons(
-      self, image: np.ndarray,
-      icon: np.ndarray) -> Tuple[List[BoundingBox], List[np.ndarray]]:
+      self, image: np.ndarray, icon: np.ndarray
+  ) -> Tuple[List[BoundingBox], List[np.ndarray], List[np.ndarray]]:
     """Find instances of icon in a given image via shape context descriptor.
 
     Arguments:
@@ -122,7 +122,8 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
     Returns:
         Tuple(list of Bounding Box for each instance of icon in image,
         list of clusters of contours detected in the image to visually evaluate
-        how well contour clustering worked)
+        how well contour clustering worked, list of booleans representing
+        whether each image had zero false positives and false negatives)
     """
     # get icon keypoints and nonkeypoints (using all points will hurt accuracy)
     icon_contour_keypoints = np.vstack(
@@ -191,4 +192,4 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
         np.array([icon_contour_keypoints]))
     bboxes = algorithms.standardize_bounding_boxes_padding(
         bboxes, icon_bbox[0], icon, image)
-    return bboxes, image_contours_clusters_keypoints
+    return bboxes, image_contours_clusters_keypoints, icon_contour_keypoints
