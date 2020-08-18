@@ -20,6 +20,12 @@ class BoundingBox:
     self.max_x = int(max_x)
     self.max_y = int(max_y)
 
+  def get_width(self) -> int:
+    return self.max_x - self.min_x + 1
+
+  def get_height(self) -> int:
+    return self.max_y - self.min_y + 1
+
   def calculate_area(self) -> float:
     # add one in calculations because pixel numbers are 0-indexed
     return (self.max_x - self.min_x + 1) * (self.max_y - self.min_y + 1)

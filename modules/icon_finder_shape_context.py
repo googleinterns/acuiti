@@ -15,8 +15,8 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
 
   def __init__(self,
                desired_confidence: float = 0.5,
-               dbscan_eps: float = 10,
-               dbscan_min_neighbors: int = 5,
+               dbscan_eps: float = 7.5,
+               dbscan_min_neighbors: int = 2,
                sc_min_num_points: int = 90,
                sc_max_num_points: int = 90,
                sc_distance_threshold: float = 1,
@@ -188,4 +188,8 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
     bboxes = algorithms.suppress_overlapping_bounding_boxes(
         bboxes, rects, 1 / sorted_distances, 1 / self.sc_distance_threshold,
         self.nms_iou_threshold)
+    icon_bbox, _ = algorithms.get_bounding_boxes_from_contours(
+        np.array([icon_contour_keypoints]))
+    bboxes = algorithms.standardize_bounding_boxes_padding(
+        bboxes, icon_bbox[0], icon, image)
     return bboxes, image_contours_clusters_keypoints, icon_contour_keypoints

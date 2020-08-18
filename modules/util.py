@@ -1,4 +1,4 @@
-"""Contains utility classes and modules.
+"""Contains utility classes and modules, generally for the benchmark pipeline.
 
 Utilites include:
 - image processing utility functions
@@ -237,7 +237,8 @@ class LatencyTimer:
   def stop(self):
     self.pr.disable()
 
-  def calculate_info(self, output_path: str = defaults.OUTPUT_PATH) -> float:
+  def calculate_latency_info(self,
+                             output_path: str = defaults.OUTPUT_PATH) -> float:
     """Calculates latency info and optionally prints to file.
 
     Args:
@@ -268,7 +269,7 @@ class MemoryTracker:
   def __init__(self):
     self.memory_info = ""
 
-  def run_and_track_memory(self, func_args_tuple):
+  def run_and_track_memory(self, func_args_tuple) -> Any:
     """Tracks memory usage of a function.
 
     Args:
@@ -276,10 +277,15 @@ class MemoryTracker:
          variable number of arguments to the function
           in the form of (f, args, kw)
           Example argument: (f, (1,), {'n': int(1e6)})
+    Returns:
+        Returns whatever the function returns (could be None)
     """
-    self.memory_info = memory_profiler.memory_usage(func_args_tuple)
+    self.memory_info, return_value = memory_profiler.memory_usage(
+        func_args_tuple, retval=True)
+    return return_value
 
-  def calculate_info(self, output_path: str = defaults.OUTPUT_PATH) -> float:
+  def calculate_memory_info(self,
+                            output_path: str = defaults.OUTPUT_PATH) -> float:
     """Calculates memory usage info and optionally prints to file.
 
     Args:

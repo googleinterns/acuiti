@@ -210,5 +210,52 @@ pointset_tests = [(keypoints_1, 2, 3, nonkeypoints_1, 3),
 def test_create_pointset(keypoints, min_points, max_points, nonkeypoints,
                          expected):
   assert len(
-      algorithms.resize_pointset(keypoints, min_points, max_points,
-                                 nonkeypoints, random_seed=0)) == expected
+      algorithms.resize_pointset(keypoints,
+                                 min_points,
+                                 max_points,
+                                 nonkeypoints,
+                                 random_seed=0)) == expected
+
+
+# ------------------------------------------------------------------------
+# ---------------------- test standardization of padding ------------------
+# -------------------------------------------------------------------------
+# The following test suite tests the creation of pointsets of a certain desired
+# size in these cases, in order:
+# -- padding ratio would lead to a desired padding that isn't an integer
+# -- padding ratio would lead to a desired padding that is an integer
+# -- padding ratio that's different vertically from horizontally
+# -- having no padding at all
+# -- with the desired padding the proposed bounding box would be out of range
+#     of the image (testing both the x and y axis)
+template_icon_1 = np.full((4, 4, 3), 1)
+bbox_1 = BoundingBox(1, 1, 2, 2)  # padding ratio is 1/2 horiz, 1/2 vert
+template_icon_2 = np.full((7, 8, 3), 1)
+bbox_2 = BoundingBox(1, 1, 6, 5)  # padding ratio is 1/6 horiz, 1/5 vert
+template_icon_3 = np.full((5, 2, 3), 1)
+bbox_3 = BoundingBox(0, 0, 1, 4)  # padding is zero
+image_1 = np.full((10, 9, 3), 1)
+
+standardize_padding_tests = [
+    ([BoundingBox(3, 3, 5, 5)], bbox_1, template_icon_1, image_1,
+     [BoundingBox(2, 2, 6, 6)]),
+    ([BoundingBox(3, 3, 6, 6)], bbox_1, template_icon_1, image_1,
+     [BoundingBox(1, 1, 8, 8)]),
+    ([BoundingBox(1, 1, 5, 5)], bbox_2, template_icon_2, image_1,
+     [BoundingBox(1, 0, 5, 6)]),
+    ([BoundingBox(1, 1, 5, 5)], bbox_3, template_icon_3, image_1,
+     [BoundingBox(1, 1, 5, 5)]),
+    ([BoundingBox(1, 1, 8, 8)], bbox_1, template_icon_1, image_1,
+     [BoundingBox(0, 0, 8, 9)])
+]
+
+
+@pytest.mark.parametrize(
+    "proposed_boxes_unpadded,icon_box_unpadded,icon,image,expected",
+    standardize_padding_tests)
+def test_standardize_bounding_boxes_padding(proposed_boxes_unpadded,
+                                            icon_box_unpadded, icon, image,
+                                            expected):
+  assert algorithms.standardize_bounding_boxes_padding(proposed_boxes_unpadded,
+                                                       icon_box_unpadded, icon,
+                                                       image) == expected
