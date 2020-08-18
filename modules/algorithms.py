@@ -324,10 +324,9 @@ def standardize_bounding_boxes_padding(
       dimensions altered to include proportional padding according to the
       template icon's padding ratios.
   """
-  icon_height = icon.shape[0]
-  icon_width = icon.shape[1]
-  icon_box_height = icon_box_unpadded.max_y - icon_box_unpadded.min_y + 1
-  icon_box_width = icon_box_unpadded.max_x - icon_box_unpadded.min_x + 1
+  icon_height, icon_width = icon.shape[:2]
+  icon_box_height = icon_box_unpadded.get_height()
+  icon_box_width = icon_box_unpadded.get_width()
   icon_vertical_padding = max(0, (icon_height - icon_box_height) /
                               2)  # for both top and bottom
   icon_vertical_padding_ratio = icon_vertical_padding / icon_box_height
@@ -335,8 +334,7 @@ def standardize_bounding_boxes_padding(
                                 2)  # for both left and right
   icon_horizontal_padding_ratio = icon_horizontal_padding / icon_box_width
 
-  image_height = image.shape[0]
-  image_width = image.shape[1]
+  image_height, image_width = image.shape[:2]
   return [
       _pad_bounding_box(icon_horizontal_padding_ratio,
                         icon_vertical_padding_ratio, image_height, image_width,
