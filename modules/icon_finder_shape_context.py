@@ -188,4 +188,8 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
     bboxes = algorithms.suppress_overlapping_bounding_boxes(
         bboxes, rects, 1 / sorted_distances, 1 / self.sc_distance_threshold,
         self.nms_iou_threshold)
+    icon_bbox, _ = algorithms.get_bounding_boxes_from_contours(
+        np.array([icon_contour_keypoints]))
+    bboxes = algorithms.standardize_bounding_boxes_padding(
+        bboxes, icon_bbox[0], icon, image)
     return bboxes, image_contours_clusters_keypoints, icon_contour_keypoints

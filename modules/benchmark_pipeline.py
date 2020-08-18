@@ -6,16 +6,11 @@ from typing import Tuple
 import cv2
 from modules import analysis_util
 from modules import defaults
-from modules import icon_finder_random
-from modules import icon_finder_shape_context
+from modules import icon_finder
 from modules import util
 from modules.correctness_metrics import CorrectnessMetrics
+from modules.types import OptionalFloat
 import numpy as np
-
-_ICON_FINDERS = {
-    "random": icon_finder_random.IconFinderRandom,
-    "shape-context": icon_finder_shape_context.IconFinderShapeContext
-}  # pytype: disable=module-attr
 
 
 class BenchmarkPipeline:
@@ -106,15 +101,16 @@ class BenchmarkPipeline:
       analysis_util.save_icon_with_image(icon_rgb, image_rgb,
                                          output_name + str(i) + ".png")
 
-  def calculate_latency(self, icon_finder, output_path: str) -> float:
+  def calculate_latency(self, icon_finder_object, output_path: str) -> float:
     """Uses LatencyTimer to calculate average time taken by icon_finder.
 
     The average time per image is via processing all the images and icons in
     the dataset. It optionally also prints this information to a file
-    given by output_path.
+    given by output_path. It will also record the results of the icon finder
+    algorithm if no other method has done so yet.
 
     Arguments:
-        icon_finder: IconFinder object that implements an
+        icon_finder_object: IconFinder object that implements an
         icon-finding algorithm.
         output_path: If not empty, output will also be written
         to this path.
@@ -122,29 +118,35 @@ class BenchmarkPipeline:
     Returns:
         float -- Average time in seconds that icon_finder took per image.
     """
+    record_results = True
+    if self.proposed_boxes:
+      record_results = False
+
     times = []
     for image, icon in zip(self.image_list, self.icon_list):
       timer = util.LatencyTimer()  # pytype: disable=module-attr
       timer.start()
-      bboxes, image_contour_clusters, icon_contour = icon_finder.find_icons(
+      bboxes, image_contour_clusters, icon_contour = icon_finder_object.find_icons(
           image, icon)
       timer.stop()
-      self.proposed_boxes.append(bboxes)
-      self.image_clusters.append(image_contour_clusters)
-      self.icon_contours.append(icon_contour)
-      times.append(timer.calculate_info(output_path))
+      if record_results:
+        self.proposed_boxes.append(bboxes)
+        self.image_clusters.append(image_contour_clusters)
+        self.icon_contours.append(icon_contour)
+      times.append(timer.calculate_latency_info(output_path))
     print("Average time per image: %f" % np.mean(times))
     return np.mean(times)
 
-  def calculate_memory(self, icon_finder, output_path: str) -> float:
+  def calculate_memory(self, icon_finder_object, output_path: str) -> float:
     """Uses MemoryTracker to calculate average memory used by icon_finder.
 
     The average memory is via processing all the images and icons in
     the dataset. It optionally also prints this information to a file
-    given by output_path.
+    given by output_path. It will also record results of the icon finder
+    if no other method has recorded it yet.
 
     Arguments:
-        icon_finder: IconFinder object that implements an
+        icon_finder_object: IconFinder object that implements an
         icon-finding algorithm.
         output_path: If not empty, output will also be written
         to this path.
@@ -152,57 +154,85 @@ class BenchmarkPipeline:
     Returns:
         float -- average memory in MiBs that icon_finder used per image.
     """
+    record_results = True
+    if self.proposed_boxes:
+      record_results = False
+
     mems = []
     for image, icon in zip(self.image_list, self.icon_list):
       memtracker = util.MemoryTracker()  # pytype: disable=module-attr
-      memtracker.run_and_track_memory((icon_finder.find_icons, (image, icon)))
-      mems.append(memtracker.calculate_info(output_path))
+      bboxes, image_contour_clusters, icon_contour = memtracker.run_and_track_memory(
+          (icon_finder_object.find_icons, (image, icon)))
+      mems.append(memtracker.calculate_memory_info(output_path))
+      if record_results:
+        self.proposed_boxes.append(bboxes)
+        self.image_clusters.append(image_contour_clusters)
+        self.icon_contours.append(icon_contour)
     print("Average MiBs per image: %f" % np.mean(mems))
     return np.mean(mems)
 
   def find_icons(
       self,
-      find_icon_option: str = defaults.FIND_ICON_OPTION,
+      icon_finder_object: icon_finder.IconFinder = defaults.FIND_ICON_OBJECT,
       output_path: str = defaults.OUTPUT_PATH,
-      desired_confidence: float = defaults.DESIRED_CONFIDENCE
-  ) -> Tuple[float, float]:
-    """Runs an icon-finding algorithm under timed and memory-tracking conditions.
+      calc_latency: bool = True,
+      calc_memory: bool = True) -> Tuple[OptionalFloat, OptionalFloat]:
+    """Runs an icon-finding algorithm, possibly under timed and memory-tracking conditions.
+
+    This function will ensure that the results of the icon-finding algorithm are
+    recorded, either when run under timed or memory-tracking conditions, or in
+    an additional iteration if neither of those have been selected. Hence, the
+    maximum number of times the algorithm is run is 2 (both time and memory
+    conditions selected).
 
     Arguments:
-        find_icon_option: Choice of icon-finding (bounding box finding)
-         algorithm. (default: {defaults.FIND_ICON_OPTION})
+        icon_finder_object: IconFinder object that implements an
+         icon-finding algorithm. Must be a subclass of the abstract class
+         IconFinder. (default: defaults.FIND_ICON_OBJECT)
         output_path: Filename for writing time and memory info to
          (default: {defaults.OUTPUT_PATH})
-        desired_confidence: The desired confidence for the bounding boxes that
-         are returned, from 0 to 1. (default: {0.5})
+        calc_latency: Whether to run algorithm under latency-profiling
+         conditions. If calc_memory is True, setting calc_latency to True
+         will run the algorithm an additional iteration just to calculate
+         the latency information. Otherwise, the algorithm is just run once,
+         recording latency information if this flag is True.
+         (default: True)
+        calc_memory: Whether to run algorithm under memory-profiling
+         conditions. If calc_latency is True, setting calc_memory to True
+         will run the algorithm an additional iteration just to calculate
+         the memory information. Otherwise, the algorithm is just run once,
+         recording memory information if this flag is True. (default: True)
 
     Returns:
-        (total time, total memory) used for find icon process
+        (total time, total memory) used for find icon process (floats)
+         or None for each value if its corresponding boolean flag
+         was passed in as False
     """
-    if find_icon_option not in _ICON_FINDERS:
-      print(
-          "Could not find the find icon class you inputted. Using default %s instead"
-          % defaults.FIND_ICON_OPTION)
-      find_icon_option = defaults.FIND_ICON_OPTION
-    try:
-      icon_finder = _ICON_FINDERS[find_icon_option](desired_confidence)
-    except KeyError:
-      print("Error resolving %s" % _ICON_FINDERS[find_icon_option])
+    latency = None
+    memory = None
+    if calc_latency:
+      latency = self.calculate_latency(icon_finder_object, output_path)
+    if calc_memory:
+      memory = self.calculate_memory(icon_finder_object, output_path)
 
-    return self.calculate_latency(icon_finder,
-                                  output_path), self.calculate_memory(
-                                      icon_finder, output_path)
+    # latency and memory were not run and didn't generate results
+    if not self.proposed_boxes:
+      for image, icon in zip(self.image_list, self.icon_list):
+        bboxes, image_contour_clusters = icon_finder_object.find_icons(
+            image, icon)
+        self.proposed_boxes.append(bboxes)
+        self.image_clusters.append(image_contour_clusters)
+    return latency, memory
 
   def evaluate(
       self,
       visualize: bool = False,
       iou_threshold: float = defaults.IOU_THRESHOLD,
       output_path: str = defaults.OUTPUT_PATH,
-      find_icon_option: str = defaults.FIND_ICON_OPTION,
+      icon_finder_object: icon_finder.IconFinder = defaults.FIND_ICON_OBJECT,
       multi_instance_icon: bool = False,
       analysis_mode: bool = False,
-      desired_confidence: float = defaults.DESIRED_CONFIDENCE
-  ) -> Tuple[CorrectnessMetrics, float, float]:
+  ) -> Tuple[CorrectnessMetrics, OptionalFloat, OptionalFloat]:
     """Integrated pipeline for testing calculated bounding boxes.
 
     Compares calculated bounding boxes to ground truth,
@@ -217,30 +247,32 @@ class BenchmarkPipeline:
           (default: {defaults.IOU_THRESHOLD})
         output_path: path for where accuracy should be printed to.
         (default: {defaults.OUTPUT_PATH})
-        find_icon_option: option for find_icon algorithm.
-         (default: {defaults.FIND_ICON_OPTION})
+        icon_finder_object: option for find_icon algorithm.
+         (default: {defaults.FIND_ICON_OBJECT})
         multi_instance_icon: flag for whether we're evaluating with
          multiple instances of an icon in an image
           (default: {False})
         analysis_mode: bool for whether to run extra analyses, similar
          to debug mode.
-        desired_confidence: The desired confidence for the bounding boxes that
-         are returned, from 0 to 1. (default: {0.5})
 
     Returns:
         Tuple(CorrectnessMetrics, avg runtime, avg memory of
          the bounding box detection process.)
     """
+    assert isinstance(
+        icon_finder_object, icon_finder.IconFinder
+    ), "Icon-finding object passed in must be an instance of IconFinder"
+    icon_finder_option = type(icon_finder_object).__name__
+
     if analysis_mode:
       self.image_list, self.gold_boxes = analysis_util.scale_images_and_bboxes(
           self.image_list, self.gold_boxes, 5, 5)
 
-    avg_runtime_secs, avg_memory_mbs = self.find_icons(find_icon_option,
-                                                       output_path,
-                                                       desired_confidence)
+    avg_runtime_secs, avg_memory_mbs = self.find_icons(icon_finder_object,
+                                                       output_path, True, True)
     if visualize:
-      self.visualize_bounding_boxes("images/" + find_icon_option + "/" +
-                                    find_icon_option + "-visualized",
+      self.visualize_bounding_boxes("images/" + icon_finder_option + "/" +
+                                    icon_finder_option + "-visualized",
                                     multi_instance_icon=multi_instance_icon)
     if multi_instance_icon:
       correctness, self.correctness_mask = util.evaluate_proposed_bounding_boxes(
@@ -251,8 +283,9 @@ class BenchmarkPipeline:
           [[boxes[0]] for boxes in self.gold_boxes], output_path)
 
     if analysis_mode:
-      self.visualize_bounding_boxes("images/" + find_icon_option + "-failed/" +
-                                    find_icon_option + "-visualized",
+      self.visualize_bounding_boxes("images/" + icon_finder_option +
+                                    "-failed/" + icon_finder_option +
+                                    "-visualized",
                                     multi_instance_icon=multi_instance_icon,
                                     draw_contours=True,
                                     only_save_failed=True)
@@ -270,12 +303,6 @@ class BenchmarkPipeline:
 if __name__ == "__main__":
   parser = argparse.ArgumentParser(
       description="Run a benchmark test on find_icon algorithm.")
-  parser.add_argument("--algorithm",
-                      dest="find_icon_option",
-                      type=str,
-                      default=defaults.FIND_ICON_OPTION,
-                      help="find icon algorithm option (default: %s)" %
-                      defaults.FIND_ICON_OPTION)
   parser.add_argument("--tfrecord_path",
                       dest="tfrecord_path",
                       type=str,
@@ -310,25 +337,10 @@ if __name__ == "__main__":
       default=False,
       help="whether to visualize bounding boxes on image (default: %s)" %
       False)
-  parser.add_argument(
-      "--desired_confidence",
-      dest="desired_confidence",
-      type=float,
-      default=defaults.DESIRED_CONFIDENCE,
-      help=
-      "a float from 0 to 1 representing how confident the results should be (default: %s)"
-      % defaults.DESIRED_CONFIDENCE)
   args = parser.parse_args()
-  _find_icon_option = args.find_icon_option
-  if _find_icon_option not in _ICON_FINDERS:
-    print(
-        "Could not find the find icon class you inputted. Using default %s instead"
-        % defaults.FIND_ICON_OPTION)
-    _find_icon_option = defaults.FIND_ICON_OPTION
+
   benchmark = BenchmarkPipeline(tfrecord_path=args.tfrecord_path)
   benchmark.evaluate(visualize=args.visualize,
                      iou_threshold=args.threshold,
                      output_path=args.output_path,
-                     find_icon_option=_find_icon_option,
-                     multi_instance_icon=args.multi_instance_icon,
-                     desired_confidence=args.desired_confidence)
+                     multi_instance_icon=args.multi_instance_icon)
