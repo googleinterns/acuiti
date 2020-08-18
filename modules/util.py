@@ -164,10 +164,9 @@ def get_confusion_matrix(iou_threshold: float,
       matched_gold_index_to_proposed_iou[max_gold_box_index] = max_iou
 
   # true positives are matches that meet the IOU threhsold
-  current_true_pos = np.sum([
-      1 if iou >= iou_threshold else 0
-      for iou in matched_gold_index_to_proposed_iou.values()
-  ])
+  current_true_pos = np.sum(
+      np.array(list(matched_gold_index_to_proposed_iou.values())) >=
+      iou_threshold)
   num_true_pos += current_true_pos
 
   # matches w/IOU below threshold: corresp. proposed boxes are false positives
