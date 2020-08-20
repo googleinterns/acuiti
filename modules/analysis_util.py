@@ -4,10 +4,11 @@ This contains:
 - labeling the number of points in a cluster on the image
 - plotting the number of points as a histogram
 """
-from typing import List
+from typing import List, Tuple
 
 import cv2
 import matplotlib.pyplot as plt
+from modules.bounding_box import BoundingBox
 import numpy as np
 
 
@@ -103,3 +104,40 @@ def generate_scatterplot(x: np.ndarray,
   plt.ylabel(ylabel)
   plt.savefig(output_path)
   plt.close(fig=fig)
+
+
+def scale_images_and_bboxes(
+    images: List[np.ndarray], bboxes: List[List[BoundingBox]],
+    horizontal_scale_factor: float, vertical_scale_factor: float
+) -> Tuple[np.ndarray, List[List[BoundingBox]]]:
+  """Scale a list of images and bounding boxes by scale factors given.
+
+  Arguments:
+      images: list of images to scale
+      bboxes: list of bounding box lists to scale
+      horizontal_scale_factor: horizontal scaling factor
+      vertical_scale_factor: vertical scaling factor
+
+  Returns:
+      Tuple[scaled images, scaled bounding box lists scaled according to the
+      horizontal and vertical scaling factors.
+  """
+  scaled_images = []
+  scaled_bboxes = []
+  for image, bbox_list in zip(images, bboxes):
+    orig_height, orig_width = image.shape[:2]
+    scaled_height = int(orig_height * vertical_scale_factor)
+    scaled_width = int(orig_width * horizontal_scale_factor)
+    # opencv sizes are width by height instead of height by width
+    scaled_image = cv2.resize(src=image, dsize=(scaled_width, scaled_height))
+    scaled_images.append(scaled_image)
+    
+    scaled_bbox_list = []
+    for bbox in bbox_list:
+      scaled_bbox_list.append(
+          BoundingBox(bbox.min_x * horizontal_scale_factor,
+                      bbox.min_y * vertical_scale_factor,
+                      bbox.max_x * horizontal_scale_factor,
+                      bbox.max_y * vertical_scale_factor))
+    scaled_bboxes.append(scaled_bbox_list)
+  return scaled_images, scaled_bboxes

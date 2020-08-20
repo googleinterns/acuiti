@@ -263,6 +263,11 @@ class BenchmarkPipeline:
         icon_finder_object, icon_finder.IconFinder
     ), "Icon-finding object passed in must be an instance of IconFinder"
     icon_finder_option = type(icon_finder_object).__name__
+
+    if analysis_mode:
+      self.image_list, self.gold_boxes = analysis_util.scale_images_and_bboxes(
+          self.image_list, self.gold_boxes, 5, 5)
+
     avg_runtime_secs, avg_memory_mbs = self.find_icons(icon_finder_object,
                                                        output_path, True, True)
     if visualize:
