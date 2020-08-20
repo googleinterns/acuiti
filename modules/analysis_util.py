@@ -109,7 +109,7 @@ def generate_scatterplot(x: np.ndarray,
 def scale_images_and_bboxes(
     images: List[np.ndarray], bboxes: List[List[BoundingBox]],
     horizontal_scale_factor: float, vertical_scale_factor: float
-) -> Tuple[np.ndarray, List[List[BoundingBox]]]:
+) -> Tuple[List[np.ndarray], List[List[BoundingBox]]]:
   """Scale a list of images and bounding boxes by scale factors given.
 
   Arguments:
@@ -131,7 +131,7 @@ def scale_images_and_bboxes(
     # opencv sizes are width by height instead of height by width
     scaled_image = cv2.resize(src=image, dsize=(scaled_width, scaled_height))
     scaled_images.append(scaled_image)
-    
+
     scaled_bbox_list = []
     for bbox in bbox_list:
       scaled_bbox_list.append(
