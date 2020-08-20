@@ -131,6 +131,7 @@ def scale_images_and_bboxes(
     # opencv sizes are width by height instead of height by width
     scaled_image = cv2.resize(src=image, dsize=(scaled_width, scaled_height))
     scaled_images.append(scaled_image)
+    
     scaled_bbox_list = []
     for bbox in bbox_list:
       scaled_bbox_list.append(
