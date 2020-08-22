@@ -263,13 +263,12 @@ class BenchmarkPipeline:
         icon_finder_object, icon_finder.IconFinder
     ), "Icon-finding object passed in must be an instance of IconFinder"
     icon_finder_option = type(icon_finder_object).__name__
-
     if analysis_mode:
       self.image_list, self.gold_boxes = analysis_util.scale_images_and_bboxes(
           self.image_list, self.gold_boxes, 5, 5)
 
     avg_runtime_secs, avg_memory_mbs = self.find_icons(icon_finder_object,
-                                                       output_path, True, True)
+                                                       output_path, True, False)
     if visualize:
       self.visualize_bounding_boxes("images/" + icon_finder_option + "/" +
                                     icon_finder_option + "-visualized",
@@ -281,7 +280,7 @@ class BenchmarkPipeline:
       correctness, self.correctness_mask = util.evaluate_proposed_bounding_boxes(
           iou_threshold, [[boxes[0]] for boxes in self.proposed_boxes],
           [[boxes[0]] for boxes in self.gold_boxes], output_path)
-
+    analysis_mode=True
     if analysis_mode:
       self.visualize_bounding_boxes("images/" + icon_finder_option +
                                     "-failed/" + icon_finder_option +

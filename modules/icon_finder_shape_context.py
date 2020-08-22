@@ -4,16 +4,19 @@ from typing import List, Tuple
 
 import cv2
 
+import hdbscan
 from modules import algorithms
 from modules.bounding_box import BoundingBox
 import modules.icon_finder
 import numpy as np
+import sklearn.cluster
 
 
 class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable=module-attr
   """This class generates bounding boxes via Shape Context Descriptors."""
 
   def __init__(self,
+               clustering_option: str = "dbscan",
                desired_confidence: float = 0.5,
                dbscan_eps: float = 7.5,
                dbscan_min_neighbors: int = 2,
@@ -24,6 +27,8 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
     """Initializes the hyperparameters for the shape context icon finder.
 
     Arguments:
+        clustering_option: A string with the desired clustering algorithm. The
+         currently accepted ones are {dbscan, hierarchical, optics, hdbscan}.
         desired_confidence: The desired confidence for the bounding boxes that
          are returned, from 0 to 1. (default: {0.5})
         dbscan_eps: The maximum distance a point can be away to be considered
@@ -43,9 +48,25 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
          boxes of image patches before the lower confidence one is discarded by
          non-max-suppression algorithm (default: {0.9})
     """
+    if clustering_option == "dbscan":
+      self.clusterer = sklearn.cluster.DBSCAN(eps=dbscan_eps,
+                                              min_samples=dbscan_min_neighbors)
+    elif clustering_option == "hierarchical":
+      self.clusterer = sklearn.cluster.AgglomerativeClustering(
+          n_clusters=45, compute_full_tree=False)
+    elif clustering_option == "optics":
+      self.clusterer = sklearn.cluster.OPTICS(min_samples=40,
+                                              max_eps=7.5,
+                                              min_cluster_size=50,
+                                              n_jobs=-1)
+    elif clustering_option == "hdbscan":
+      self.clusterer = hdbscan.HDBSCAN(min_cluster_size=11,
+                                       min_samples=15,
+                                       cluster_selection_epsilon=7.5)
+    else:
+      raise ValueError("Your clustering option, %s was not found." %
+                       clustering_option)
     self.desired_confidence = desired_confidence
-    self.dbscan_eps = dbscan_eps
-    self.dbscan_min_neighbors = dbscan_min_neighbors
     self.sc_min_num_points = sc_min_num_points
     self.sc_max_num_points = sc_max_num_points
     self.sc_distance_threshold = sc_distance_threshold
@@ -141,8 +162,8 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
     image_contours = np.vstack(algorithms.detect_contours(image,
                                                           True)).squeeze()
 
-    image_contours_clusters, _ = algorithms.cluster_contours_dbscan(
-        image_contours, self.dbscan_eps, self.dbscan_min_neighbors)
+    image_contours_clusters = algorithms.cluster_contours(
+        self.clusterer, image_contours)
 
     # filter out nonkeypoints from image contour clusters
     image_contours_keypoints = np.vstack(
