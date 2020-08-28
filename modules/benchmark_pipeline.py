@@ -268,7 +268,7 @@ class BenchmarkPipeline:
           self.image_list, self.gold_boxes, 5, 5)
 
     avg_runtime_secs, avg_memory_mbs = self.find_icons(icon_finder_object,
-                                                       output_path, True, False)
+                                                       output_path, True, True)
     if visualize:
       self.visualize_bounding_boxes("images/" + icon_finder_option + "/" +
                                     icon_finder_option + "-visualized",
@@ -280,7 +280,7 @@ class BenchmarkPipeline:
       correctness, self.correctness_mask = util.evaluate_proposed_bounding_boxes(
           iou_threshold, [[boxes[0]] for boxes in self.proposed_boxes],
           [[boxes[0]] for boxes in self.gold_boxes], output_path)
-    analysis_mode=True
+
     if analysis_mode:
       self.visualize_bounding_boxes("images/" + icon_finder_option +
                                     "-failed/" + icon_finder_option +

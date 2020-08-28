@@ -4,22 +4,20 @@ from typing import List, Tuple
 
 import cv2
 
-import hdbscan
 from modules import algorithms
+from modules import clustering_algorithms
 from modules.bounding_box import BoundingBox
 import modules.icon_finder
 import numpy as np
-import sklearn.cluster
 
 
 class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable=module-attr
   """This class generates bounding boxes via Shape Context Descriptors."""
 
   def __init__(self,
-               clustering_option: str = "dbscan",
+               clusterer: clustering_algorithms.
+               SklearnClusterer = clustering_algorithms.DBSCANClusterer(),
                desired_confidence: float = 0.5,
-               dbscan_eps: float = 7.5,
-               dbscan_min_neighbors: int = 2,
                sc_min_num_points: int = 90,
                sc_max_num_points: int = 90,
                sc_distance_threshold: float = 1,
@@ -27,14 +25,10 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
     """Initializes the hyperparameters for the shape context icon finder.
 
     Arguments:
-        clustering_option: A string with the desired clustering algorithm. The
-         currently accepted ones are {dbscan, hierarchical, optics, hdbscan}.
+        clusterer: A clusterer object that inherits from SklearnClusterer (ie,
+        is a wrapper for one of Sklearn's clustering algorithm objects)
         desired_confidence: The desired confidence for the bounding boxes that
          are returned, from 0 to 1. (default: {0.5})
-        dbscan_eps: The maximum distance a point can be away to be considered
-         within neighborhood of another point by DBSCAN. (default: {10})
-        dbscan_min_neighbors: The number of points needed within a neighborhood
-         of a point for it to be a core point by DBSCAN. (default: {5})
         sc_min_num_points: The *desired* minimum number of points per image
          patch passed into shape context descriptor algorithm, if possible.
          Also applies to template icon. (default: {90})
@@ -48,24 +42,10 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
          boxes of image patches before the lower confidence one is discarded by
          non-max-suppression algorithm (default: {0.9})
     """
-    if clustering_option == "dbscan":
-      self.clusterer = sklearn.cluster.DBSCAN(eps=dbscan_eps,
-                                              min_samples=dbscan_min_neighbors)
-    elif clustering_option == "hierarchical":
-      self.clusterer = sklearn.cluster.AgglomerativeClustering(
-          n_clusters=45, compute_full_tree=False)
-    elif clustering_option == "optics":
-      self.clusterer = sklearn.cluster.OPTICS(min_samples=40,
-                                              max_eps=7.5,
-                                              min_cluster_size=50,
-                                              n_jobs=-1)
-    elif clustering_option == "hdbscan":
-      self.clusterer = hdbscan.HDBSCAN(min_cluster_size=11,
-                                       min_samples=15,
-                                       cluster_selection_epsilon=7.5)
-    else:
-      raise ValueError("Your clustering option, %s was not found." %
-                       clustering_option)
+    assert isinstance(
+        clusterer, clustering_algorithms.SklearnClusterer
+    ), "Clusterer passed in must be an instance of SklearnClusterer"
+    self.clusterer = clusterer.get_clusterer()
     self.desired_confidence = desired_confidence
     self.sc_min_num_points = sc_min_num_points
     self.sc_max_num_points = sc_max_num_points
