@@ -4,6 +4,7 @@ from typing import List
 
 from modules import analysis_util
 from modules import benchmark_pipeline
+from modules import clustering_algorithms
 from modules import icon_finder_shape_context
 import numpy as np
 
@@ -31,7 +32,8 @@ def dbscan_clustering_optimizer(eps_values: List[float],
     recall_min_samples = []
     for samples in min_samples:
       icon_finder = icon_finder_shape_context.IconFinderShapeContext(
-          dbscan_eps=eps, dbscan_min_neighbors=samples)
+          clusterer=clustering_algorithms.DBSCANClusterer(eps=eps,
+                                                          min_samples=samples))
       benchmark = benchmark_pipeline.BenchmarkPipeline(
           tfrecord_path=tfrecord_path)
       correctness, _, _ = benchmark.evaluate(
