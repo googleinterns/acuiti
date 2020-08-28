@@ -17,6 +17,7 @@ google-auth-oauthlib==0.4.1
 google-pasta==0.2.0
 grpcio==1.30.0
 h5py==2.10.0
+hdbscan==0.8.26
 idna==2.9
 imageio==2.8.0
 importlab==0.5.1
