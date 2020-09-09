@@ -1,5 +1,6 @@
 """This module has an IconFinderShapeContext class for finding bounding boxes.
 """
+import multiprocessing
 from typing import List, Tuple
 
 import cv2
@@ -8,6 +9,7 @@ from modules import algorithms
 from modules import clustering_algorithms
 from modules.bounding_box import BoundingBox
 import modules.icon_finder
+from modules.types import OptionalTuple
 import numpy as np
 
 
@@ -52,6 +54,17 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
     self.sc_distance_threshold = sc_distance_threshold
     self.nms_iou_threshold = nms_iou_threshold
 
+  def _get_distance(self, icon_contour_3d, image_contour_3d) -> OptionalTuple:
+    try:
+      distance = algorithms.shape_context_distance(icon_contour_3d,
+                                                   image_contour_3d)
+      if distance < self.sc_distance_threshold:
+        return (distance, image_contour_3d)
+    except cv2.error as e:
+      print(e)
+      print("These were the icon and image shapes: %s %s" %
+            (str(icon_contour_3d.shape), str(image_contour_3d.shape)))
+
   def _get_similar_contours(
       self, icon_contour_keypoints: np.ndarray,
       icon_contour_nonkeypoints: np.ndarray,
@@ -78,9 +91,6 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
         to each contour: List[float])
     """
 
-    nearby_contours = []
-    nearby_distances = []
-
     icon_pointset = algorithms.resize_pointset(icon_contour_keypoints,
                                                self.sc_min_num_points,
                                                self.sc_max_num_points,
@@ -88,7 +98,8 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
     # expand the 1st dimension so that the shape is (n, 1, 2),
     # which is what shape context algorithm wants
     icon_contour_3d = np.expand_dims(icon_pointset, axis=1)
-
+    pool = multiprocessing.Pool(None)
+    distances = []
     for cluster_keypoints, cluster_nonkeypoints in zip(
         image_contour_clusters_keypoints, image_contour_clusters_nonkeypoints):
       cluster_pointset = algorithms.resize_pointset(cluster_keypoints,
@@ -99,16 +110,19 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
       # expand the 1st dimension so that the shape is (n, 1, 2),
       # which is what shape context algorithm wants
       image_contour_3d = np.expand_dims(cluster_pointset, axis=1)
-      try:
-        distance = algorithms.shape_context_distance(icon_contour_3d,
-                                                     image_contour_3d)
-        if distance < self.sc_distance_threshold:
-          nearby_contours.append(cluster_keypoints)
-          nearby_distances.append(distance)
-      except cv2.error as e:
-        print(e)
-        print("These were the icon and image shapes: %s %s" %
-              (str(icon_contour_3d.shape), str(image_contour_3d.shape)))
+      pool.apply_async(self._get_distance,
+                       args=(
+                           icon_contour_3d,
+                           image_contour_3d,
+                       ),
+                       callback=distances.append)
+
+    pool.close()
+    pool.join()
+    nearby_contours = [result[1] for result in distances if result is not None]
+    nearby_distances = [
+        result[0] for result in distances if result is not None
+    ]
     return np.array(nearby_contours), np.array(nearby_distances)
 
   def find_icons(
