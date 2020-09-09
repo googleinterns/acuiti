@@ -81,15 +81,12 @@ def cluster_contours(
       That is: List[List[int]]
 
   Returns:
-      Tuple: (List of groups of points each representing its own contour,
-       List of corresponding boolean mask of core points).
-       The contours and masks are np.ndarrays of List[List[int]]
-       and List[bool].
+      List of groups of points each representing its own contour, in the form of
+      np.ndarray of List[List[int]]
   """
   clusters = clusterer.fit(image_contours)
   # a label of -1 means the point was not clustered - a "noise" point
-  n_clusters = len(set(
-      clusters.labels_)) - (1 if -1 in clusters.labels_ else 0)
+  n_clusters = len([label for label in set(clusters.labels_) if label != -1])
   n_noise = list(clusters.labels_).count(-1)
   print("Estimated number of clusters: %d" % n_clusters)
   print("Estimated number of noise points: %d" % n_noise)
