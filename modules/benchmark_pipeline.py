@@ -3,6 +3,7 @@
 import argparse
 from typing import Tuple
 
+
 import cv2
 from modules import analysis_util
 from modules import defaults
@@ -134,7 +135,12 @@ class BenchmarkPipeline:
         self.image_clusters.append(image_contour_clusters)
         self.icon_contours.append(icon_contour)
       times.append(timer.calculate_latency_info(output_path))
-    print("Average time per image: %f" % np.mean(times))
+    time_info = "Average time per image: %f\n" % np.mean(times)
+    time_info += "Median time of images: %f" % np.median(times)
+    if output_path:
+      with open(output_path, "a") as output_file:
+        output_file.write(time_info)
+    print(time_info)
     return np.mean(times)
 
   def calculate_memory(self, icon_finder_object, output_path: str) -> float:
@@ -168,7 +174,12 @@ class BenchmarkPipeline:
         self.proposed_boxes.append(bboxes)
         self.image_clusters.append(image_contour_clusters)
         self.icon_contours.append(icon_contour)
-    print("Average MiBs per image: %f" % np.mean(mems))
+    memory_info = "Average MiBs per image: %f" % np.mean(mems)
+    memory_info += "Median MiBs per image: %f" % np.median(mems)
+    if output_path:
+      with open(output_path, "a") as output_file:
+        output_file.write(memory_info)
+    print(memory_info)
     return np.mean(mems)
 
   def find_icons(
@@ -267,8 +278,9 @@ class BenchmarkPipeline:
       self.image_list, self.gold_boxes = analysis_util.scale_images_and_bboxes(
           self.image_list, self.gold_boxes, 5, 5)
 
-    avg_runtime_secs, avg_memory_mbs = self.find_icons(icon_finder_object,
-                                                       output_path, True, True)
+    avg_runtime_secs, avg_memory_mbs = self.find_icons(
+        icon_finder_object, output_path, False,
+        True)
     if visualize:
       self.visualize_bounding_boxes("images/" + icon_finder_option + "/" +
                                     icon_finder_option + "-visualized",
