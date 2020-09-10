@@ -3,6 +3,7 @@
 import abc
 
 import hdbscan
+import sklearn
 import sklearn.cluster
 
 
@@ -10,10 +11,11 @@ class SklearnClusterer(abc.ABC):
   """SklearnClusterer is the base class for clustering classes.
 
   Attributes:
-    clusterer: object of type sklearn.cluster. All sklearn.cluster objects
-     follow the same API (ie, you can call .fit(X) on them).
+    clusterer: object of type sklearn.base.ClusterMixin. All
+     sklearn.base.ClusterMixin objects follow the same API
+     (ie, you can call .fit(X) on them).
   """
-  clusterer: sklearn.cluster
+  clusterer: sklearn.base.ClusterMixin
 
   def get_clusterer(self):
     return self.clusterer
