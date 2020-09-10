@@ -29,3 +29,42 @@ Under ```tests/```:
 
 Under ```datasets/```:
 - Small datasets used for integration tests. Actual datasets to validate results are much larger and not included in this repository.
+
+# Benchmark Pipeline
+The end-to-end pipeline can be run from the command-line ```python -m modules.benchmark_pipeline``` with the following flags:
+
+```
+usage: benchmark_pipeline.py [-h] [--tfrecord_path TFRECORD_PATH] [--iou_threshold THRESHOLD] [--output_path OUTPUT_PATH] [--multi_instance_icon MULTI_INSTANCE_ICON] [--visualize VISUALIZE]
+
+Run a benchmark test on find_icon algorithm.
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --tfrecord_path TFRECORD_PATH
+                        path to tfrecord (default: datasets/small_single_instance_v2.tfrecord)
+  --iou_threshold THRESHOLD
+                        iou above this threshold is considered accurate (default: 0.600000)
+  --output_path OUTPUT_PATH
+                        path to where output is written (default: )
+  --multi_instance_icon MULTI_INSTANCE_ICON
+                        whether to evaluate with multiple instances of an icon in an image (default: False)
+  --visualize VISUALIZE
+                        whether to visualize bounding boxes on image (default: False)
+ ```
+ 
+The benchmark pipeline can be modified with these files:
+- ```modules/benchmark_pipeline.py``` which has the end-to-end pipeline, including a visualization option
+- ```modules/util.py``` which has tools to read in a dataset from a TfRecord file and custom Latency and Memory-tracking classes
+- ```modules/defaults.py``` can be modified to change the default icon finder algorithm, IOU threshold, output path, and dataset path to run the benchmark pipeline with.
+
+# Find Icon Algorithms
+A custom find icon algorithm can be passed into the benchmark pipeline when run programmatically. These are the relevant files:
+- ```modules/algorithms.py``` includes a suite of algorithms for edge detection, shape context descriptor distance calculation, precision & recall calculation
+- ```modules/icon_finder.py``` is the abstract base class that the custom find icon algorithm should inherit from. 
+- ```modules/icon_finder_shape_context.py``` is the optimized version of the shape context algorithm pipeline that we used to achieve our current metrics
+- ```modules/clustering_algorithms.py``` contains wrappers for Sklearn's clustering algorithms with custom defaults exposed for our use cases
+
+# Analysis Utilities
+Analysis tools are provided in the following files:
+- ```modules/analysis_util.py``` contains tools to label cluster sizes, generate histograms, saving an icon/image as a pair, generate scatterplots, and scaling images/bounding boxes
+- ```modules/optimizer.py``` contains an optimizer to find best hyperparameters for clustering algorithms
