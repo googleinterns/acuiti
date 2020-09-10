@@ -54,12 +54,24 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
     self.sc_distance_threshold = sc_distance_threshold
     self.nms_iou_threshold = nms_iou_threshold
 
-  def _get_distance(self, icon_contour_3d, image_contour_3d) -> OptionalTuple:
+  def _get_distance(self, icon_contour_3d: np.ndarray,
+                    image_contour_3d: np.ndarray) -> OptionalTuple:
+    """Calculate distance between icon and image contour.
+
+    Arguments:
+        icon_contour_3d: icon contour in shape context's format
+        image_contour_3d: image contour in shape context's format
+        (n, 1, 2)
+
+    Returns:
+        (distance, image_contour_3d) if there weren't any exceptions;
+        otherwise, does not return anything
+    """
     try:
       distance = algorithms.shape_context_distance(icon_contour_3d,
                                                    image_contour_3d)
       if distance < self.sc_distance_threshold:
-        return (distance, image_contour_3d)
+        return (image_contour_3d, distance)
     except cv2.error as e:
       print(e)
       print("These were the icon and image shapes: %s %s" %
@@ -99,7 +111,7 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
     # which is what shape context algorithm wants
     icon_contour_3d = np.expand_dims(icon_pointset, axis=1)
     pool = multiprocessing.Pool(None)
-    distances = []
+    contours_and_distances = []
     for cluster_keypoints, cluster_nonkeypoints in zip(
         image_contour_clusters_keypoints, image_contour_clusters_nonkeypoints):
       cluster_pointset = algorithms.resize_pointset(cluster_keypoints,
@@ -115,13 +127,19 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
                            icon_contour_3d,
                            image_contour_3d,
                        ),
-                       callback=distances.append)
+                       callback=contours_and_distances.append)
 
     pool.close()
     pool.join()
-    nearby_contours = [result[1] for result in distances if result is not None]
+    nearby_contours = [
+        contour_and_distance[0]
+        for contour_and_distance in contours_and_distances
+        if contour_and_distance is not None
+    ]
     nearby_distances = [
-        result[0] for result in distances if result is not None
+        contour_and_distance[1]
+        for contour_and_distance in contours_and_distances
+        if contour_and_distance is not None
     ]
     return np.array(nearby_contours), np.array(nearby_distances)
 

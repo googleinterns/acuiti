@@ -13,7 +13,7 @@ class SklearnClusterer(abc.ABC):
     clusterer: object of type sklearn.cluster. All sklearn.cluster objects
      follow the same API (ie, you can call .fit(X) on them).
   """
-  clusterer: sklearn.cluster
+  clusterer = None
 
   def get_clusterer(self):
     return self.clusterer

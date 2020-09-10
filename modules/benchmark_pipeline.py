@@ -279,7 +279,7 @@ class BenchmarkPipeline:
           self.image_list, self.gold_boxes, 5, 5)
 
     avg_runtime_secs, avg_memory_mbs = self.find_icons(
-        icon_finder_object, output_path, False,
+        icon_finder_object, output_path, True,
         True)
     if visualize:
       self.visualize_bounding_boxes("images/" + icon_finder_option + "/" +

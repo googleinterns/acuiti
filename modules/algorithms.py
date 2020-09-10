@@ -14,7 +14,6 @@ from typing import List, Tuple
 import cv2
 from modules.bounding_box import BoundingBox
 import numpy as np
-import sklearn.cluster
 
 # experimentally-derived constants for the precision-recall curve
 _HIGH_PRECISION_MULTIPLIER = 1.5
@@ -70,8 +69,8 @@ def detect_contours(
 
 
 def cluster_contours(
-    clusterer: sklearn.cluster,
-    image_contours: np.ndarray) -> Tuple[List[np.ndarray], List[np.ndarray]]:
+    clusterer,
+    image_contours: np.ndarray) -> List[np.ndarray]:
   """Group contours using the clustering object provided.
 
   Arguments:
