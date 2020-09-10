@@ -1,7 +1,7 @@
 """BenchmarkPipeline class and tfRecord utility functions."""
 
 import argparse
-from typing import Tuple
+from typing import Optional, Tuple
 
 import cv2
 from modules import analysis_util

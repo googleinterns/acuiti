@@ -1,7 +1,7 @@
 """This module has an IconFinderShapeContext class for finding bounding boxes.
 """
 import multiprocessing  # pytype: disable=pyi-error
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 import cv2
 
