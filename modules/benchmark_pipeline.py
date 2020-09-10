@@ -3,7 +3,6 @@
 import argparse
 from typing import Tuple
 
-
 import cv2
 from modules import analysis_util
 from modules import defaults
@@ -32,7 +31,8 @@ class BenchmarkPipeline:
 
     # ----------------------the below are set by algorithm --------------------
     self.proposed_boxes = []  # proposed lists of bounding boxes for each image
-    self.image_clusters = []  # list of each image's contour clusters (analysis)
+    self.image_clusters = [
+    ]  # list of each image's contour clusters (analysis)
     self.icon_contours = []  # list of each template icon's contours (analysis)
     self.correctness_mask = []  # True if no false pos/neg for image (analysis)
 
@@ -278,9 +278,10 @@ class BenchmarkPipeline:
       self.image_list, self.gold_boxes = analysis_util.scale_images_and_bboxes(
           self.image_list, self.gold_boxes, 5, 5)
 
-    avg_runtime_secs, avg_memory_mbs = self.find_icons(
-        icon_finder_object, output_path, True,
-        True)
+    avg_runtime_secs, avg_memory_mbs = self.find_icons(icon_finder_object,
+                                                       output_path,
+                                                       calc_latency=True,
+                                                       calc_memory=True)
     if visualize:
       self.visualize_bounding_boxes("images/" + icon_finder_option + "/" +
                                     icon_finder_option + "-visualized",

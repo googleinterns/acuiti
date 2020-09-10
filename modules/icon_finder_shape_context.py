@@ -64,8 +64,7 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
         (n, 1, 2)
 
     Returns:
-        (distance, image_contour_3d) if there weren't any exceptions;
-        otherwise, does not return anything
+        (distance, image_contour_3d), or None if there was an exception
     """
     try:
       distance = algorithms.shape_context_distance(icon_contour_3d,
@@ -110,6 +109,8 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
     # expand the 1st dimension so that the shape is (n, 1, 2),
     # which is what shape context algorithm wants
     icon_contour_3d = np.expand_dims(icon_pointset, axis=1)
+
+    # uses as many processes as available CPUs
     pool = multiprocessing.Pool(None)
     contours_and_distances = []
     for cluster_keypoints, cluster_nonkeypoints in zip(
@@ -131,16 +132,8 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
 
     pool.close()
     pool.join()
-    nearby_contours = [
-        contour_and_distance[0]
-        for contour_and_distance in contours_and_distances
-        if contour_and_distance is not None
-    ]
-    nearby_distances = [
-        contour_and_distance[1]
-        for contour_and_distance in contours_and_distances
-        if contour_and_distance is not None
-    ]
+    nearby_contours, nearby_distances = zip(
+        *list(filter(None, contours_and_distances)))
     return np.array(nearby_contours), np.array(nearby_distances)
 
   def find_icons(
