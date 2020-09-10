@@ -268,6 +268,7 @@ class MemoryTracker:
 
   def __init__(self):
     self.memory_info = ""
+    self.prev_memory = 0
 
   def run_and_track_memory(self, func_args_tuple) -> Any:
     """Tracks memory usage of a function.
@@ -280,6 +281,7 @@ class MemoryTracker:
     Returns:
         Returns whatever the function returns (could be None)
     """
+    self.prev_memory = memory_profiler.memory_usage()[-1]
     self.memory_info, return_value = memory_profiler.memory_usage(
         func_args_tuple, retval=True)
     return return_value
@@ -295,11 +297,10 @@ class MemoryTracker:
     Returns:
         float -- the MiBs used by the function call
     """
-    average_mb = self.memory_info
-    if len(self.memory_info) > 1:
-      average_mb = np.mean(self.memory_info)
-    output_msg = "Process took %f MiBs \n" % average_mb
+
+    mb_used = np.max(self.memory_info) - self.prev_memory
+    output_msg = "Process took %f MiBs \n" % mb_used
     if output_path:
       with open(output_path, "a") as output_file:
         output_file.write(output_msg)
-    return float(average_mb)
+    return float(mb_used)
