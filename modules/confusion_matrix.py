@@ -59,5 +59,5 @@ class ConfusionMatrix:
 
     print("Accuracy: %f\n" % accuracy)
     print("Precision: %f\n" % precision)
-    print("Recall: %f\n" % recall)
+    print("Recall: %f\n\n" % recall)
     return CorrectnessMetrics(accuracy, precision, recall)
