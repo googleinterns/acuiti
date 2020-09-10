@@ -1,7 +1,7 @@
 """This module has an IconFinderShapeContext class for finding bounding boxes.
 """
-import multiprocessing
-from typing import List, Tuple
+import multiprocessing  # pytype: disable=pyi-error
+from typing import List, Optional, Tuple
 
 import cv2
 
@@ -9,7 +9,6 @@ from modules import algorithms
 from modules import clustering_algorithms
 from modules.bounding_box import BoundingBox
 import modules.icon_finder
-from modules.types import OptionalTuple
 import numpy as np
 
 
@@ -55,7 +54,7 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
     self.nms_iou_threshold = nms_iou_threshold
 
   def _get_distance(self, icon_contour_3d: np.ndarray,
-                    image_contour_3d: np.ndarray) -> OptionalTuple:
+                    image_contour_3d: np.ndarray) -> Optional[Tuple]:
     """Calculate distance between icon and image contour.
 
     Arguments:
