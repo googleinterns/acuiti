@@ -69,45 +69,32 @@ def detect_contours(
   return image_contours
 
 
-def cluster_contours_dbscan(
-    image_contours: np.ndarray,
-    eps: float = 7.5,
-    min_samples: int = 2) -> Tuple[List[np.ndarray], List[np.ndarray]]:
-  """Group contours using DBSCAN.
+def cluster_contours(
+    clusterer: sklearn.cluster,
+    image_contours: np.ndarray) -> Tuple[List[np.ndarray], List[np.ndarray]]:
+  """Group contours using the clustering object provided.
 
   Arguments:
+      clusterer: An sklearn clusterer object, already initialized with its
+      parameters.
       image_contours: Flattened list of all points in all contours of an image.
       That is: List[List[int]]
-      eps: The maximum distance a point can be away to be considered
-       within neighborhood of another point. (default: {10})
-      min_samples: The number of points needed within a neighborhood
-       of a point for it to be a core point. (default: {5})
 
   Returns:
-      Tuple: (List of groups of points each representing its own contour,
-       List of corresponding boolean mask of core points).
-       The contours and masks are np.ndarrays of List[List[int]]
-       and List[bool].
+      List of groups of points each representing its own contour, in the form of
+      np.ndarray of List[List[int]]
   """
-  clusters = sklearn.cluster.DBSCAN(
-      eps=eps, min_samples=min_samples).fit(image_contours)
-  # a label of -1 means the point was not clustered by DBSCAN - a "noise" point
-  n_clusters = len(set(
-      clusters.labels_)) - (1 if -1 in clusters.labels_ else 0)
+  clusters = clusterer.fit(image_contours)
+  # a label of -1 means the point was not clustered - a "noise" point
+  n_clusters = len([label for label in set(clusters.labels_) if label != -1])
   n_noise = list(clusters.labels_).count(-1)
   print("Estimated number of clusters: %d" % n_clusters)
   print("Estimated number of noise points: %d" % n_noise)
-  core_samples_mask = np.zeros_like(clusters.labels_, dtype=bool)
-  core_samples_mask[clusters.core_sample_indices_] = True
   contour_groups = []
-  core_samples_mask_groups = []
   for i in range(0, n_clusters):
     contour_group = image_contours[np.argwhere(clusters.labels_ == i)]
     contour_groups.append(np.vstack(contour_group).squeeze())
-    core_samples_mask_groups.append(
-        np.vstack(
-            core_samples_mask[np.argwhere(clusters.labels_ == i)]).squeeze())
-  return contour_groups, core_samples_mask_groups
+  return contour_groups
 
 
 def resize_pointset(keypoints: np.ndarray,

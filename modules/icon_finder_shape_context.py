@@ -5,6 +5,7 @@ from typing import List, Tuple
 import cv2
 
 from modules import algorithms
+from modules import clustering_algorithms
 from modules.bounding_box import BoundingBox
 import modules.icon_finder
 import numpy as np
@@ -14,9 +15,9 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
   """This class generates bounding boxes via Shape Context Descriptors."""
 
   def __init__(self,
+               clusterer: clustering_algorithms.
+               SklearnClusterer = clustering_algorithms.DBSCANClusterer(),
                desired_confidence: float = 0.5,
-               dbscan_eps: float = 7.5,
-               dbscan_min_neighbors: int = 2,
                sc_min_num_points: int = 90,
                sc_max_num_points: int = 90,
                sc_distance_threshold: float = 1,
@@ -24,12 +25,10 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
     """Initializes the hyperparameters for the shape context icon finder.
 
     Arguments:
+        clusterer: A clusterer object that inherits from SklearnClusterer (ie,
+        is a wrapper for one of Sklearn's clustering algorithm objects)
         desired_confidence: The desired confidence for the bounding boxes that
          are returned, from 0 to 1. (default: {0.5})
-        dbscan_eps: The maximum distance a point can be away to be considered
-         within neighborhood of another point by DBSCAN. (default: {10})
-        dbscan_min_neighbors: The number of points needed within a neighborhood
-         of a point for it to be a core point by DBSCAN. (default: {5})
         sc_min_num_points: The *desired* minimum number of points per image
          patch passed into shape context descriptor algorithm, if possible.
          Also applies to template icon. (default: {90})
@@ -43,9 +42,11 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
          boxes of image patches before the lower confidence one is discarded by
          non-max-suppression algorithm (default: {0.9})
     """
+    assert isinstance(
+        clusterer, clustering_algorithms.SklearnClusterer
+    ), "Clusterer passed in must be an instance of SklearnClusterer"
+    self.clusterer = clusterer.get_clusterer()
     self.desired_confidence = desired_confidence
-    self.dbscan_eps = dbscan_eps
-    self.dbscan_min_neighbors = dbscan_min_neighbors
     self.sc_min_num_points = sc_min_num_points
     self.sc_max_num_points = sc_max_num_points
     self.sc_distance_threshold = sc_distance_threshold
@@ -141,8 +142,8 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
     image_contours = np.vstack(algorithms.detect_contours(image,
                                                           True)).squeeze()
 
-    image_contours_clusters, _ = algorithms.cluster_contours_dbscan(
-        image_contours, self.dbscan_eps, self.dbscan_min_neighbors)
+    image_contours_clusters = algorithms.cluster_contours(
+        self.clusterer, image_contours)
 
     # filter out nonkeypoints from image contour clusters
     image_contours_keypoints = np.vstack(
