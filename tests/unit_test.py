@@ -207,7 +207,7 @@ pointset_tests = [(keypoints_1, 2, 3, nonkeypoints_1, 3),
 
 @pytest.mark.parametrize(
     "keypoints,min_points,max_points,nonkeypoints,expected", pointset_tests)
-def test_create_pointset(keypoints, min_points, max_points, nonkeypoints,
+def test_resize_pointset(keypoints, min_points, max_points, nonkeypoints,
                          expected):
   assert len(
       algorithms.resize_pointset(keypoints,
