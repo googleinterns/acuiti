@@ -1,7 +1,7 @@
 """This module has an IconFinderShapeContext class for finding bounding boxes.
 """
 import multiprocessing
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 import cv2
 
@@ -145,7 +145,8 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
 
   def find_icons(
       self, image: np.ndarray, icon: np.ndarray
-  ) -> Tuple[List[BoundingBox], List[np.ndarray], List[np.ndarray]]:
+  ) -> Tuple[List[BoundingBox], Optional[List[np.ndarray]],
+             Optional[List[np.ndarray]]]:
     """Find instances of icon in a given image via shape context descriptor.
 
     Arguments:
@@ -155,8 +156,8 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
     Returns:
         Tuple(list of Bounding Box for each instance of icon in image,
         list of clusters of contours detected in the image to visually evaluate
-        how well contour clustering worked, list of booleans representing
-        whether each image had zero false positives and false negatives)
+        how well contour clustering worked, list of contours detected in the
+        icon, also for visualization purposes)
     """
     # get icon keypoints and nonkeypoints (using all points will hurt accuracy)
     icon_contour_keypoints = np.vstack(
