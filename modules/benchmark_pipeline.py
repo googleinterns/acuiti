@@ -9,7 +9,6 @@ from modules import defaults
 from modules import icon_finder
 from modules import util
 from modules.correctness_metrics import CorrectnessMetrics
-from modules.types import OptionalFloat
 import numpy as np
 
 
@@ -31,8 +30,7 @@ class BenchmarkPipeline:
 
     # ----------------------the below are set by algorithm --------------------
     self.proposed_boxes = []  # proposed lists of bounding boxes for each image
-    self.image_clusters = [
-    ]  # list of each image's contour clusters (analysis)
+    self.image_clusters = []  # list of each image's contour clusters(analysis)
     self.icon_contours = []  # list of each template icon's contours (analysis)
     self.correctness_mask = []  # True if no false pos/neg for image (analysis)
 
@@ -187,7 +185,7 @@ class BenchmarkPipeline:
       icon_finder_object: icon_finder.IconFinder = defaults.FIND_ICON_OBJECT,
       output_path: str = defaults.OUTPUT_PATH,
       calc_latency: bool = True,
-      calc_memory: bool = True) -> Tuple[OptionalFloat, OptionalFloat]:
+      calc_memory: bool = True) -> Tuple[Optional[float], Optional[float]]:
     """Runs an icon-finding algorithm, possibly under timed and memory-tracking conditions.
 
     This function will ensure that the results of the icon-finding algorithm are
@@ -243,7 +241,7 @@ class BenchmarkPipeline:
       icon_finder_object: icon_finder.IconFinder = defaults.FIND_ICON_OBJECT,
       multi_instance_icon: bool = False,
       analysis_mode: bool = False,
-  ) -> Tuple[CorrectnessMetrics, OptionalFloat, OptionalFloat]:
+  ) -> Tuple[CorrectnessMetrics, Optional[float], Optional[float]]:
     """Integrated pipeline for testing calculated bounding boxes.
 
     Compares calculated bounding boxes to ground truth,
