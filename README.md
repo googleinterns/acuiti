@@ -10,7 +10,7 @@ This project involves using shape-context descriptors to find an arbitrary templ
 <p align="center">Algorithm Overview<p align="center">
 
 
-This project built and optimized the algorithm pipeline described above to achieve a find icon algorithm that is:
+This project built and optimized the algorithm pipeline described above to achieve an icon matching algorithm that is:
 - [x] scale-invariant
 - [x] color-invariant
 - [x] has ~95% recall/precision 
@@ -20,8 +20,8 @@ This project built and optimized the algorithm pipeline described above to achie
 Here's an overview of the files in this repository. There are three main types of files of interest (in bold) which are explained in further detail in each of the sections below.
 
 Under ```modules/```:
-  - **Benchmark Pipeline**, which runs any find icon algorithm on any dataset and outputs accuracy, latency, and memory information;
-  - **Find Icon Algorithms**, which includes our optimized implementation of the shape context descriptor algorithm that achieves ~95% recall/precision in 1-2s on average;
+  - **Benchmark Pipeline**, which runs any icon matching algorithm on any dataset and outputs accuracy, latency, and memory information;
+  - **Icon Matching Algorithms**, which includes our optimized implementation of the shape context descriptor algorithm that achieves ~95% recall/precision in 1-2s on average;
   - **Analysis Utilities**, which are tools used to run experiments to figure out how to optimize our shape context descriptor algorithm;
 
 Under ```tests/```:
@@ -31,7 +31,24 @@ Under ```datasets/```:
 - Small datasets used for integration tests. Actual datasets to validate results are much larger and not included in this repository.
 
 # Benchmark Pipeline
-The end-to-end pipeline can be run from the command-line ```python -m modules.benchmark_pipeline``` with the following flags:
+## Running from the Command-Line
+The end-to-end pipeline can be run from the command-line as such:```python -m modules.benchmark_pipeline --tfrecord_path=datasets/small_single_instance_v2.tfrecord --output_path=small_single_instance.txt --multi_instance_icon=False --visualize=True --iou_threshold=0.6```. 
+
+The results (accuracy, precision, recall, latency average/median, memory average/median) will then be printed to the output txt file as well as to stdout like so:
+```Average time per image: 1.439400
+Median time of images: 1.544500
+
+Average MiBs per image: 6.865234
+Median MiBs per image: 5.380859
+
+Accuracy: 0.935484
+
+Precision: 0.966667
+
+Recall: 0.966667
+```
+
+Here are more details on the flags:
 
 ```
 usage: benchmark_pipeline.py [-h] [--tfrecord_path TFRECORD_PATH] [--iou_threshold THRESHOLD] [--output_path OUTPUT_PATH] [--multi_instance_icon MULTI_INSTANCE_ICON] [--visualize VISUALIZE]
@@ -52,6 +69,16 @@ optional arguments:
                         whether to visualize bounding boxes on image (default: False)
  ```
  
+ ## Running Programmatically
+When run programmatically, the benchmark pipeline can also support some additional parameters, such as a custom icon detection algorithm. Here's an example:
+```
+benchmark = BenchmarkPipeline(tfrecord_path="datasets/small_multi_instance_v2.tfrecord")
+correctness, latency_avg_secs, memory_avg_mibs = benchmark.evaluate(icon_finder_object=
+                                                                icon_finder_shape_context.IconFinderShapeContext(clusterer=clustering_algorithms.DBSCANClusterer()))
+```
+(Note that correctness is a dataclass from which we can extract accuracy, precision, and recall by calling ```correctness.accuracy```, ```correctness.precision```, ```correctness.recall```. Example usage of the benchmark pipeline for multi-instance cases can also be found in ```tests/integration_tests.py```. 
+
+## Modifying the Pipeline
 The benchmark pipeline can be modified with these files:
 - ```modules/benchmark_pipeline.py``` which has the end-to-end pipeline, including a visualization option
 - ```modules/util.py``` which has tools to read in a dataset from a TfRecord file and custom Latency and Memory-tracking classes
