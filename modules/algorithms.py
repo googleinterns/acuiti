@@ -9,6 +9,7 @@ The algorithms here generally correspond to what is used in icon_finders:
 - Distance thresholding
 - Suppress overlapping bounding boxes
 """
+import logging
 from typing import List, Tuple
 
 import cv2
@@ -87,8 +88,8 @@ def cluster_contours(clusterer: sklearn.base.ClusterMixin,
   # a label of -1 means the point was not clustered - a "noise" point
   n_clusters = len([label for label in set(clusters.labels_) if label != -1])
   n_noise = list(clusters.labels_).count(-1)
-  print("Estimated number of clusters: %d" % n_clusters)
-  print("Estimated number of noise points: %d" % n_noise)
+  logging.debug("Estimated number of clusters: %d", n_clusters)
+  logging.debug("Estimated number of noise points: %d", n_noise)
   contour_groups = []
   for i in range(0, n_clusters):
     contour_group = image_contours[np.argwhere(clusters.labels_ == i)]

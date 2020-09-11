@@ -1,5 +1,6 @@
 """This module has an IconFinderShapeContext class for finding bounding boxes.
 """
+import logging
 import multiprocessing  # pytype: disable=pyi-error
 from typing import List, Optional, Tuple
 
@@ -53,8 +54,9 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
     self.sc_distance_threshold = sc_distance_threshold
     self.nms_iou_threshold = nms_iou_threshold
 
-  def _get_distance(self, icon_contour_3d: np.ndarray,
-                    image_contour_3d: np.ndarray) -> Optional[Tuple]:
+  def _get_distance(
+      self, icon_contour_3d: np.ndarray,
+      image_contour_3d: np.ndarray) -> Optional[Tuple[np.ndarray, float]]:
     """Calculate distance between icon and image contour.
 
     Arguments:
@@ -71,9 +73,9 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
       if distance < self.sc_distance_threshold:
         return (image_contour_3d, distance)
     except cv2.error as e:
-      print(e)
-      print("These were the icon and image shapes: %s %s" %
-            (str(icon_contour_3d.shape), str(image_contour_3d.shape)))
+      logging.debug(e)
+      logging.debug("These were the icon and image shapes: %s %s",
+                    str(icon_contour_3d.shape), str(image_contour_3d.shape))
 
   def _get_similar_contours(
       self, icon_contour_keypoints: np.ndarray,
@@ -137,7 +139,8 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
 
   def find_icons(
       self, image: np.ndarray, icon: np.ndarray
-  ) -> Tuple[List[BoundingBox], List[np.ndarray], List[np.ndarray]]:
+  ) -> Tuple[List[BoundingBox], Optional[List[np.ndarray]],
+             Optional[List[np.ndarray]]]:
     """Find instances of icon in a given image via shape context descriptor.
 
     Arguments:
@@ -147,8 +150,8 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
     Returns:
         Tuple(list of Bounding Box for each instance of icon in image,
         list of clusters of contours detected in the image to visually evaluate
-        how well contour clustering worked, list of booleans representing
-        whether each image had zero false positives and false negatives)
+        how well contour clustering worked, list of contours detected in the
+        icon, also for visualization purposes)
     """
     # get icon keypoints and nonkeypoints (using all points will hurt accuracy)
     icon_contour_keypoints = np.vstack(
@@ -199,7 +202,7 @@ class IconFinderShapeContext(modules.icon_finder.IconFinder):  # pytype: disable
     sorted_indices = nearby_distances.argsort()
     sorted_contours = nearby_contours[sorted_indices]
     sorted_distances = nearby_distances[sorted_indices]
-    print("Minimum distance achieved: %f" % sorted_distances[0])
+    logging.debug("Minimum distance achieved: %f", sorted_distances[0])
     distance_threshold = algorithms.get_distance_threshold(
         sorted_distances, desired_confidence=self.desired_confidence)
     end_index = np.searchsorted(sorted_distances,

@@ -1,6 +1,7 @@
 """BenchmarkPipeline class and tfRecord utility functions."""
 
 import argparse
+import logging
 from typing import Optional, Tuple
 
 import cv2
@@ -16,8 +17,10 @@ class BenchmarkPipeline:
   """Represents a pipeline to test generated Bounding Boxes.
 
   Usage example:
-    benchmark = BenchmarkPipeline("benchmark.tfrecord")
-    benchmark.evaluate()
+    benchmark = BenchmarkPipeline(tfrecord_path="datasets/
+       small_multi_instance_v2.tfrecord")
+    benchmark.evaluate(icon_finder_object=icon_finder_shape_context.
+       IconFinderShapeContext(clusterer=clustering_algorithms.DBSCANClusterer()))
   """
 
   def __init__(self, tfrecord_path: str = defaults.TFRECORD_PATH):
@@ -83,7 +86,7 @@ class BenchmarkPipeline:
         cv2.rectangle(image_bgr_copy, (box.min_x, box.min_y),
                       (box.max_x, box.max_y), (0, 0, 255), 2)
 
-      if draw_contours:
+      if draw_contours and self.image_clusters[i] and self.icon_contours[i]:
         # draw each contour cluster in the image with a distinct color
         # each contour cluster will alternate between these colors
         colors = [(128, 0, 128), (255, 192, 203), (255, 0, 255)]
@@ -95,7 +98,7 @@ class BenchmarkPipeline:
       image_rgb = cv2.cvtColor(image_bgr_copy, cv2.COLOR_BGR2RGB)
       icon_rgb = cv2.cvtColor(icon_bgr_copy, cv2.COLOR_BGR2RGB)
       if image_rgb is None:
-        print("Could not read the image.")
+        logging.error("Could not read the image.")
 
       analysis_util.save_icon_with_image(icon_rgb, image_rgb,
                                          output_name + str(i) + ".png")
@@ -133,12 +136,12 @@ class BenchmarkPipeline:
         self.image_clusters.append(image_contour_clusters)
         self.icon_contours.append(icon_contour)
       times.append(timer.calculate_latency_info(output_path))
-    time_info = "Average time per image: %f\n" % np.mean(times)
-    time_info += "Median time of images: %f" % np.median(times)
+    time_info = "Average seconds per image: %f\n" % np.mean(times)
+    time_info += "Median seconds of images: %f\n" % np.median(times)
     if output_path:
       with open(output_path, "a") as output_file:
         output_file.write(time_info)
-    print(time_info)
+    logging.info(time_info)
     return np.mean(times)
 
   def calculate_memory(self, icon_finder_object, output_path: str) -> float:
@@ -172,12 +175,12 @@ class BenchmarkPipeline:
         self.proposed_boxes.append(bboxes)
         self.image_clusters.append(image_contour_clusters)
         self.icon_contours.append(icon_contour)
-    memory_info = "Average MiBs per image: %f" % np.mean(mems)
-    memory_info += "Median MiBs per image: %f" % np.median(mems)
+    memory_info = "Average MiBs per image: %f\n" % np.mean(mems)
+    memory_info += "Median MiBs per image: %f\n" % np.median(mems)
     if output_path:
       with open(output_path, "a") as output_file:
         output_file.write(memory_info)
-    print(memory_info)
+    logging.info(memory_info)
     return np.mean(mems)
 
   def find_icons(
@@ -351,6 +354,6 @@ if __name__ == "__main__":
 
   benchmark = BenchmarkPipeline(tfrecord_path=args.tfrecord_path)
   benchmark.evaluate(visualize=args.visualize,
-                     iou_threshold=args.threshold,
-                     output_path=args.output_path,
-                     multi_instance_icon=args.multi_instance_icon)
+                    iou_threshold=args.threshold,
+                    output_path=args.output_path,
+                    multi_instance_icon=args.multi_instance_icon)

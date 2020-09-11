@@ -1,4 +1,6 @@
 """This module contains a ConfusionMatrix class."""
+import logging
+
 import dataclasses
 from modules import defaults
 from modules.correctness_metrics import CorrectnessMetrics
@@ -57,7 +59,7 @@ class ConfusionMatrix:
         output_file.write("Precision: %f\n" % precision)
         output_file.write("Recall: %f\n" % recall)
 
-    print("Accuracy: %f\n" % accuracy)
-    print("Precision: %f\n" % precision)
-    print("Recall: %f\n" % recall)
+    logging.info("Accuracy: %f\n", accuracy)
+    logging.info("Precision: %f\n", precision)
+    logging.info("Recall: %f\n\n", recall)
     return CorrectnessMetrics(accuracy, precision, recall)

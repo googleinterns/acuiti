@@ -3,6 +3,9 @@
 This contains:
 - labeling the number of points in a cluster on the image
 - plotting the number of points as a histogram
+- saving an icon and image within the same image
+- generating a custom scatterplot
+- scaling images and icons in a dataset
 """
 from typing import List, Tuple
 
