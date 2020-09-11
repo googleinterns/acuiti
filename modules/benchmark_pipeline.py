@@ -99,7 +99,7 @@ class BenchmarkPipeline:
       image_rgb = cv2.cvtColor(image_bgr_copy, cv2.COLOR_BGR2RGB)
       icon_rgb = cv2.cvtColor(icon_bgr_copy, cv2.COLOR_BGR2RGB)
       if image_rgb is None:
-        print("Could not read the image.")
+        logging.error("Could not read the image.")
 
       analysis_util.save_icon_with_image(icon_rgb, image_rgb,
                                          output_name + str(i) + ".png")
@@ -282,7 +282,7 @@ class BenchmarkPipeline:
 
     avg_runtime_secs, avg_memory_mbs = self.find_icons(
         icon_finder_object, output_path, True,
-        False)
+        True)
     if visualize:
       self.visualize_bounding_boxes("images/" + icon_finder_option + "/" +
                                     icon_finder_option + "-visualized",
