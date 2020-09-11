@@ -26,9 +26,9 @@ class IconFinderRandom(modules.icon_finder.IconFinder):  # pytype: disable=modul
 
     Returns:
         Tuple[Bounding Box for each instance of icon in image,
-        empty list,
-        empty list]. The empty lists are just to satisfy the overall
-        IconFinder API but would normally contain
+        None, None]. The Nones are just to satisfy the overall
+        IconFinder API but would normally contain icon and image
+        cluster contours.
     """
     height = image.shape[0]
     width = image.shape[1]

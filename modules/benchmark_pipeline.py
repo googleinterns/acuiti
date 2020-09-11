@@ -135,12 +135,12 @@ class BenchmarkPipeline:
         self.image_clusters.append(image_contour_clusters)
         self.icon_contours.append(icon_contour)
       times.append(timer.calculate_latency_info(output_path))
-    time_info = "Average time per image: %f\n" % np.mean(times)
-    time_info += "Median time of images: %f\n" % np.median(times)
+    time_info = "Average seconds per image: %f\n" % np.mean(times)
+    time_info += "Median seconds of images: %f\n" % np.median(times)
     if output_path:
       with open(output_path, "a") as output_file:
         output_file.write(time_info)
-    print(time_info)
+    logging.info(time_info)
     return np.mean(times)
 
   def calculate_memory(self, icon_finder_object, output_path: str) -> float:
@@ -179,7 +179,7 @@ class BenchmarkPipeline:
     if output_path:
       with open(output_path, "a") as output_file:
         output_file.write(memory_info)
-    print(memory_info)
+    logging.info(memory_info)
     return np.mean(mems)
 
   def find_icons(
