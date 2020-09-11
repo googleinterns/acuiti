@@ -88,12 +88,22 @@ The benchmark pipeline can be modified with these files:
 - ```modules/defaults.py``` can be modified to change the default icon finder algorithm, IOU threshold, output path, and dataset path to run the benchmark pipeline with.
 
 # Icon Matching Algorithms
-A custom icon matching algorithm can be passed into the benchmark pipeline when run programmatically. These are the relevant files:
+## Usage Example
+A custom icon matching algorithm can be passed into the benchmark pipeline when run programmatically (see above), or run as a standalone. Here's an example of the latter for the Shape Context descriptor-based icon matching algorithm in particular:
+
+```bounding_boxes, __, __ = IconFinderShapeContext(clusterer=DBSCANClusterer(), desired_confidence=0.9, sc_min_num_points=90, sc_max_num_points=90, sc_distance_threshold=0.3, nms_iou_threshold=0.9).find_icons(image, icon)```
+- ```clusterer``` is a clustering object from ```modules/clustering_algorithms.py```
+- ```sc_min_num_points``` is the minimum desired number of points in a point set passed into the shape context descriptor algorithm (the more the number of points, the slower the algorithm will be)
+- ```sc_max_num_points``` is the maximum desired number of points in a point set passed into the shape context descriptor algorithm
+- ```sc_distance_threshold``` is the maximum shape context distance between an icon and image cluster for the image cluster to be under consideration (changing this is useful when we have a lot of clusters and want to quickly eliminate most of them)
+- ```nms_iou_threshold``` is the maximum IOU between two preliminary bounding boxes of image clusters before the lower confidence one is discarded by non-max-suppression algorithm (changing this is useful if we have an ensemble clustering approach)
+
+## Other Relevant Files
+These are the other relevant files:
 - ```modules/algorithms.py``` includes a suite of algorithms for edge detection, shape context descriptor distance calculation, precision & recall calculation
 - ```modules/icon_finder.py``` is the abstract base class that the custom icon matching algorithm should inherit from. 
-- ```modules/icon_finder_shape_context.py``` is the optimized version of the shape context algorithm pipeline that we used to achieve our current metrics; for example: 
-      ```bounding_boxes, __, __ = IconFinderShapeContext().find_icons(image, icon)```
-- ```modules/clustering_algorithms.py``` contains wrappers for Sklearn's clustering algorithms with custom defaults exposed for our use cases
+- ```modules/icon_finder_shape_context.py``` is the optimized version of the shape context algorithm pipeline that we used to achieve our current metrics.
+- ```modules/clustering_algorithms.py``` contains wrappers for Sklearn's clustering algorithms with custom defaults exposed for our use cases. These can be passed into the ```IconFinderShapeContext``` object.
 
 # Analysis Utilities
 Analysis tools are provided in the following files:
