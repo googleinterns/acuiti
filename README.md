@@ -91,7 +91,8 @@ The benchmark pipeline can be modified with these files:
 A custom icon matching algorithm can be passed into the benchmark pipeline when run programmatically. These are the relevant files:
 - ```modules/algorithms.py``` includes a suite of algorithms for edge detection, shape context descriptor distance calculation, precision & recall calculation
 - ```modules/icon_finder.py``` is the abstract base class that the custom icon matching algorithm should inherit from. 
-- ```modules/icon_finder_shape_context.py``` is the optimized version of the shape context algorithm pipeline that we used to achieve our current metrics; for example: ```bounding_boxes, image_contour_clusters = IconFinderShapeContext().find_icons(image, icon)```
+- ```modules/icon_finder_shape_context.py``` is the optimized version of the shape context algorithm pipeline that we used to achieve our current metrics; for example: 
+      ```bounding_boxes, __, __ = IconFinderShapeContext().find_icons(image, icon)```
 - ```modules/clustering_algorithms.py``` contains wrappers for Sklearn's clustering algorithms with custom defaults exposed for our use cases
 
 # Analysis Utilities
