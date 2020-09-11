@@ -1,4 +1,6 @@
 """This module contains a ConfusionMatrix class."""
+import logging
+
 import dataclasses
 from modules import defaults
 from modules.correctness_metrics import CorrectnessMetrics

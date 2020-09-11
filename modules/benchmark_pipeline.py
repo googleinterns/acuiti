@@ -1,6 +1,7 @@
 """BenchmarkPipeline class and tfRecord utility functions."""
 
 import argparse
+import logging
 from typing import Optional, Tuple
 
 import cv2
@@ -85,7 +86,7 @@ class BenchmarkPipeline:
         cv2.rectangle(image_bgr_copy, (box.min_x, box.min_y),
                       (box.max_x, box.max_y), (0, 0, 255), 2)
 
-      if draw_contours and self.image_contour_clusters[i] and self.icon_contours[i]:
+      if draw_contours and self.image_clusters[i] and self.icon_contours[i]:
         # draw each contour cluster in the image with a distinct color
         # each contour cluster will alternate between these colors
         colors = [(128, 0, 128), (255, 192, 203), (255, 0, 255)]

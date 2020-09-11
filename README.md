@@ -35,7 +35,7 @@ Under ```datasets/```:
 The end-to-end pipeline can be run from the command-line as such:
 ```python -m modules.benchmark_pipeline --tfrecord_path=datasets/small_single_instance_v2.tfrecord --output_path=small_single_instance.txt --multi_instance_icon=False --visualize=True --iou_threshold=0.6```. 
 
-The results (accuracy, precision, recall, latency average/median, memory average/median) will then be printed to the output txt file as well as to stdout like so:
+The results (accuracy, precision, recall, latency average/median, memory average/median) will then be printed to the output txt file as well as to logging.info like so:
 ```
 Average seconds per image: 1.439400
 Median seconds of images: 1.544500
