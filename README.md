@@ -32,11 +32,13 @@ Under ```datasets/```:
 
 # Benchmark Pipeline
 ## Running from the Command-Line
-The end-to-end pipeline can be run from the command-line as such:```python -m modules.benchmark_pipeline --tfrecord_path=datasets/small_single_instance_v2.tfrecord --output_path=small_single_instance.txt --multi_instance_icon=False --visualize=True --iou_threshold=0.6```. 
+The end-to-end pipeline can be run from the command-line as such:
+```python -m modules.benchmark_pipeline --tfrecord_path=datasets/small_single_instance_v2.tfrecord --output_path=small_single_instance.txt --multi_instance_icon=False --visualize=True --iou_threshold=0.6```. 
 
 The results (accuracy, precision, recall, latency average/median, memory average/median) will then be printed to the output txt file as well as to stdout like so:
-```Average time per image: 1.439400
-Median time of images: 1.544500
+```
+Average seconds per image: 1.439400
+Median seconds of images: 1.544500
 
 Average MiBs per image: 6.865234
 Median MiBs per image: 5.380859
@@ -47,6 +49,7 @@ Precision: 0.966667
 
 Recall: 0.966667
 ```
+The output txt file will additionally contain latency profiling information for the icon matching algorithm. The memory calculated is the *auxiliary memory* needed by the icon matching algorithm.
 
 Here are more details on the flags:
 
@@ -76,7 +79,7 @@ benchmark = BenchmarkPipeline(tfrecord_path="datasets/small_multi_instance_v2.tf
 correctness, latency_avg_secs, memory_avg_mibs = benchmark.evaluate(icon_finder_object=
                                                                 icon_finder_shape_context.IconFinderShapeContext(clusterer=clustering_algorithms.DBSCANClusterer()))
 ```
-(Note that correctness is a dataclass from which we can extract accuracy, precision, and recall by calling ```correctness.accuracy```, ```correctness.precision```, ```correctness.recall```. Example usage of the benchmark pipeline for multi-instance cases can also be found in ```tests/integration_tests.py```. 
+(Note that correctness is a dataclass from which we can extract accuracy, precision, and recall by calling ```correctness.accuracy```, ```correctness.precision```, ```correctness.recall```). Example usage of the benchmark pipeline for multi-instance cases can also be found in ```tests/integration_tests.py```. 
 
 ## Modifying the Pipeline
 The benchmark pipeline can be modified with these files:
@@ -84,11 +87,11 @@ The benchmark pipeline can be modified with these files:
 - ```modules/util.py``` which has tools to read in a dataset from a TfRecord file and custom Latency and Memory-tracking classes
 - ```modules/defaults.py``` can be modified to change the default icon finder algorithm, IOU threshold, output path, and dataset path to run the benchmark pipeline with.
 
-# Find Icon Algorithms
-A custom find icon algorithm can be passed into the benchmark pipeline when run programmatically. These are the relevant files:
+# Icon Matching Algorithms
+A custom icon matching algorithm can be passed into the benchmark pipeline when run programmatically. These are the relevant files:
 - ```modules/algorithms.py``` includes a suite of algorithms for edge detection, shape context descriptor distance calculation, precision & recall calculation
-- ```modules/icon_finder.py``` is the abstract base class that the custom find icon algorithm should inherit from. 
-- ```modules/icon_finder_shape_context.py``` is the optimized version of the shape context algorithm pipeline that we used to achieve our current metrics
+- ```modules/icon_finder.py``` is the abstract base class that the custom icon matching algorithm should inherit from. 
+- ```modules/icon_finder_shape_context.py``` is the optimized version of the shape context algorithm pipeline that we used to achieve our current metrics (and can be run as a standalone).
 - ```modules/clustering_algorithms.py``` contains wrappers for Sklearn's clustering algorithms with custom defaults exposed for our use cases
 
 # Analysis Utilities
