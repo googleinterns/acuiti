@@ -1,8 +1,7 @@
 """BenchmarkPipeline class and tfRecord utility functions."""
 
 import argparse
-from typing import Tuple
-
+from typing import Optional, Tuple
 
 import cv2
 from modules import analysis_util
@@ -10,7 +9,6 @@ from modules import defaults
 from modules import icon_finder
 from modules import util
 from modules.correctness_metrics import CorrectnessMetrics
-from modules.types import OptionalFloat
 import numpy as np
 
 
@@ -34,7 +32,7 @@ class BenchmarkPipeline:
 
     # ----------------------the below are set by algorithm --------------------
     self.proposed_boxes = []  # proposed lists of bounding boxes for each image
-    self.image_clusters = []  # list of each image's contour clusters (analysis)
+    self.image_clusters = []  # list of each image's contour clusters(analysis)
     self.icon_contours = []  # list of each template icon's contours (analysis)
     self.correctness_mask = []  # True if no false pos/neg for image (analysis)
 
@@ -189,7 +187,7 @@ class BenchmarkPipeline:
       icon_finder_object: icon_finder.IconFinder = defaults.FIND_ICON_OBJECT,
       output_path: str = defaults.OUTPUT_PATH,
       calc_latency: bool = True,
-      calc_memory: bool = True) -> Tuple[OptionalFloat, OptionalFloat]:
+      calc_memory: bool = True) -> Tuple[Optional[float], Optional[float]]:
     """Runs an icon-finding algorithm, possibly under timed and memory-tracking conditions.
 
     This function will ensure that the results of the icon-finding algorithm are
@@ -245,7 +243,7 @@ class BenchmarkPipeline:
       icon_finder_object: icon_finder.IconFinder = defaults.FIND_ICON_OBJECT,
       multi_instance_icon: bool = False,
       analysis_mode: bool = False,
-  ) -> Tuple[CorrectnessMetrics, OptionalFloat, OptionalFloat]:
+  ) -> Tuple[CorrectnessMetrics, Optional[float], Optional[float]]:
     """Integrated pipeline for testing calculated bounding boxes.
 
     Compares calculated bounding boxes to ground truth,
@@ -280,9 +278,10 @@ class BenchmarkPipeline:
       self.image_list, self.gold_boxes = analysis_util.scale_images_and_bboxes(
           self.image_list, self.gold_boxes, 5, 5)
 
-    avg_runtime_secs, avg_memory_mbs = self.find_icons(
-        icon_finder_object, output_path, True,
-        True)
+    avg_runtime_secs, avg_memory_mbs = self.find_icons(icon_finder_object,
+                                                       output_path,
+                                                       calc_latency=True,
+                                                       calc_memory=True)
     if visualize:
       self.visualize_bounding_boxes("images/" + icon_finder_option + "/" +
                                     icon_finder_option + "-visualized",
