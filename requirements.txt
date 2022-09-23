@@ -66,7 +66,7 @@ Pillow==7.1.2
 pluggy==0.13.1
 prometheus-client==0.8.0
 prompt-toolkit==3.0.5
-protobuf==3.12.2
+protobuf==3.18.3
 psutil==5.7.0
 ptyprocess==0.6.0
 py==1.9.0
