@@ -15,7 +15,7 @@ gast==0.3.3
 google-auth==1.18.0
 google-auth-oauthlib==0.4.1
 google-pasta==0.2.0
-grpcio==1.30.0
+grpcio==1.53.2
 h5py==2.10.0
 hdbscan==0.8.26
 idna==2.9
