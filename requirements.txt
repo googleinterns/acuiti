@@ -38,7 +38,7 @@ jupyter-core==4.6.3
 Keras-Preprocessing==1.1.2
 kiwisolver==1.2.0
 lazy-object-proxy==1.4.3
-Markdown==3.2.2
+Markdown==3.8.1
 MarkupSafe==1.1.1
 matplotlib==3.2.2
 mccabe==0.6.1
